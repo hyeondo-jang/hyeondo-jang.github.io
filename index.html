@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyeondo Jang</title>
+<meta name="description" content="Hyeondo Jang — MS student at POSTECH (advised by Namhoon Lee), working on efficient neural networks: model compression, pruning, and quantization.">
+<meta name="author" content="Hyeondo Jang">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjMGU3YTk1Ii8+PHRleHQgeD0iNTAiIHk9IjUwIiBkeT0iLjM0ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJ1aS1tb25vc3BhY2UsU0ZNb25vLVJlZ3VsYXIsTWVubG8sbW9ub3NwYWNlIiBmb250LXNpemU9IjQ0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjZmZmZmZmIj5ISjwvdGV4dD48L3N2Zz4=">
+<!-- Open Graph -->
+<meta property="og:title" content="Hyeondo Jang">
+<meta property="og:description" content="MS student at POSTECH — efficient neural networks, model compression, pruning, quantization.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://hyeondo-jang.github.io/">
+<style>
+  :root{
+    --bg:#fafbfc; --surface:#ffffff; --text:#191f26; --muted:#59636f;
+    --faint:#8b95a1; --border:#e7ebef; --accent:#0e7a95; --accent-2:#0b6178;
+    --chip-bg:#eef4f6; --sel:#cfe8ef;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:"SF Mono","JetBrains Mono","Roboto Mono",ui-monospace,Menlo,Consolas,monospace;
+    --maxw:1040px;
+  }
+  /* Default is always white/light; dark applies only via the toggle (data-theme="dark"). */
+  :root[data-theme="light"]{
+    --bg:#fafbfc; --surface:#ffffff; --text:#191f26; --muted:#59636f;
+    --faint:#8b95a1; --border:#e7ebef; --accent:#0e7a95; --accent-2:#0b6178;
+    --chip-bg:#eef4f6; --sel:#cfe8ef;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1114; --surface:#151a1f; --text:#e4e9ee; --muted:#9aa5b1;
+    --faint:#6b7682; --border:#232a31; --accent:#45b6d4; --accent-2:#62c4de;
+    --chip-bg:#17232a; --sel:#123039;
+  }
+
+  *{box-sizing:border-box}
+  ::selection{background:var(--sel)}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+       font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(20px,5vw,56px);
+        display:grid;grid-template-columns:236px 1fr;gap:clamp(28px,5vw,64px);
+        align-items:start;}
+
+  /* ---------- Sidebar ---------- */
+  .side{position:sticky;top:0;align-self:start;padding:clamp(36px,6vh,64px) 0 40px;}
+  .avatar{width:118px;height:118px;border-radius:50%;background:
+      radial-gradient(120% 120% at 30% 20%,color-mix(in srgb,var(--accent) 26%,var(--surface)),var(--surface));
+      border:1px solid var(--border);display:grid;place-items:center;
+      font-family:var(--mono);font-size:2rem;font-weight:600;color:var(--accent);
+      letter-spacing:.02em;margin-bottom:20px;overflow:hidden;}
+  .avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  .name{font-size:1.5rem;font-weight:650;letter-spacing:-.01em;line-height:1.2;margin:0}
+  .name .kr{color:var(--faint);font-weight:500;font-size:1rem;margin-left:.4em}
+  .role{color:var(--muted);font-size:.92rem;margin:.5rem 0 0}
+  .role a{color:var(--accent);text-decoration:none}
+  .role a:hover{color:var(--accent-2)}
+  .meta{color:var(--faint);font-size:.86rem;margin:.35rem 0 0}
+
+  .links{list-style:none;padding:0;margin:20px 0 0;display:flex;flex-direction:column;gap:2px}
+  .links a{display:flex;align-items:center;gap:9px;padding:5px 0;color:var(--muted);
+           text-decoration:none;font-size:.88rem;transition:color .15s}
+  .links a:hover{color:var(--accent)}
+  .links svg{width:15px;height:15px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.7}
+  .links svg.solid{fill:currentColor;stroke:none}
+
+  nav.toc{margin-top:26px;padding-top:22px;border-top:1px solid var(--border);
+          display:flex;flex-direction:column;gap:1px}
+  nav.toc a{font-family:var(--mono);font-size:.8rem;letter-spacing:.01em;
+            color:var(--faint);text-decoration:none;padding:5px 0;transition:color .15s}
+  nav.toc a:hover,nav.toc a.active{color:var(--accent)}
+
+  .theme{margin-top:24px;background:none;border:1px solid var(--border);border-radius:7px;
+         color:var(--muted);font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;
+         padding:6px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.15s}
+  .theme:hover{border-color:var(--accent);color:var(--accent)}
+  .theme svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8}
+
+  /* ---------- Content ---------- */
+  main{padding:clamp(36px,6vh,64px) 0 80px;min-width:0}
+  section{margin-bottom:46px;scroll-margin-top:28px}
+  section:last-child{margin-bottom:24px}
+  .eyebrow{font-family:var(--mono);font-size:.82rem;letter-spacing:.01em;font-weight:600;
+           color:var(--accent);margin:0 0 16px;display:flex;align-items:center;gap:12px}
+  .eyebrow::after{content:"";flex:1;height:1px;background:var(--border)}
+
+  p{margin:0 0 .9em;max-width:64ch}
+  main a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;transition:.15s}
+  main a:hover{border-bottom-color:var(--accent)}
+  strong{font-weight:650}
+
+  /* News */
+  .news{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+  .news li{display:grid;grid-template-columns:5.4rem 1fr;gap:14px;font-size:.93rem}
+  .news time{font-family:var(--mono);font-size:.78rem;color:var(--faint);
+             font-variant-numeric:tabular-nums;padding-top:.12rem;white-space:nowrap}
+  .news .body{color:var(--text)}
+
+  /* Publications */
+  .pub{padding:15px 0;border-top:1px solid var(--border)}
+  .pub:first-of-type{border-top:none;padding-top:2px}
+  .pub h3{margin:0 0 4px;font-size:.96rem;font-weight:600;line-height:1.35}
+  .pub .authors{color:var(--muted);font-size:.86rem;margin:0 0 4px}
+  .pub .authors .me{color:var(--text);font-weight:650}
+  .pub .venue{font-family:var(--mono);font-size:.76rem;color:var(--accent);
+              letter-spacing:.02em;margin:0 0 7px}
+  .pub .plinks{display:flex;gap:14px;flex-wrap:wrap}
+  .pub .plinks a{font-family:var(--mono);font-size:.72rem;letter-spacing:.03em;
+                 color:var(--muted);border-bottom:none}
+  .pub .plinks a:hover{color:var(--accent)}
+  .placeholder{color:var(--faint);font-style:italic}
+
+  /* Education / rows */
+  .row{display:grid;grid-template-columns:1fr auto;gap:8px 16px;padding:11px 0;
+       border-top:1px solid var(--border);align-items:baseline}
+  .row:first-of-type{border-top:none}
+  .row .inst{font-weight:600;font-size:.95rem}
+  .row .sub{color:var(--muted);font-size:.86rem;grid-column:1/-1;margin-top:-2px}
+  .row .when{font-family:var(--mono);font-size:.78rem;color:var(--faint);
+             font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  .note{margin-top:8px;font-size:.8rem;color:var(--faint);background:var(--chip-bg);
+        border:1px dashed var(--border);border-radius:8px;padding:9px 12px;max-width:64ch}
+
+  footer{border-top:1px solid var(--border);padding-top:18px;margin-top:8px;
+         font-family:var(--mono);font-size:.72rem;color:var(--faint);letter-spacing:.03em}
+
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+
+  @media (max-width:760px){
+    .wrap{grid-template-columns:1fr;gap:8px}
+    .side{position:static;padding-bottom:8px}
+    nav.toc{flex-flow:row wrap;gap:4px 16px}
+    main{padding-top:24px}
+    .news li{grid-template-columns:1fr}
+    .news time{padding-top:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="side">
+    <div class="avatar"><img src="assets/img/profile.jpeg" alt="Hyeondo Jang" width="118" height="118"></div>
+    <h1 class="name">Hyeondo Jang</h1>
+    <p class="role">MS Student · <a href="https://www.postech.ac.kr">POSTECH</a></p>
+    <p class="meta">Graduate School of AI</p>
+    <p class="meta">Efficient Neural Networks · Pruning · Quantization</p>
+    <p class="meta">Pohang, South Korea</p>
+
+    <ul class="links">
+      <li><a href="mailto:hyeondo.jang@postech.ac.kr">
+        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+        hyeondo.jang@postech.ac.kr</a></li>
+      <li><a href="https://scholar.google.com/citations?user=J--AEbEAAAAJ">
+        <svg viewBox="0 0 24 24"><path d="M12 3 2 8.5 12 14l10-5.5L12 3Z"/><path d="M6 10.5V16c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5.5"/></svg>
+        Google Scholar</a></li>
+      <li><a href="https://www.linkedin.com/in/hyeondo-jang-83a801217/">
+        <svg class="solid" viewBox="0 0 24 24"><path d="M4.98 3.5A2.5 2.5 0 1 1 5 8.5a2.5 2.5 0 0 1-.02-5ZM3 9h4v12H3zM10 9h3.8v1.64h.05c.53-1 1.82-2.05 3.75-2.05 4.01 0 4.75 2.64 4.75 6.07V21H18.4v-5.4c0-1.29-.02-2.95-1.8-2.95-1.8 0-2.07 1.4-2.07 2.85V21H10V9Z"/></svg>
+        LinkedIn</a></li>
+      <!-- Add your CV: drop the file at assets/pdf/cv.pdf, then uncomment this line.
+      <li><a href="assets/pdf/cv.pdf">
+        <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5"/></svg>
+        Curriculum Vitae</a></li>
+      -->
+    </ul>
+
+    <nav class="toc" aria-label="Sections">
+      <a href="#about" class="active">About</a>
+      <a href="#news">News</a>
+      <a href="#publications">Publications</a>
+      <a href="#experience">Experience</a>
+      <a href="#education">Education</a>
+    </nav>
+
+    <button class="theme" id="themeBtn" aria-label="Toggle dark mode">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>
+      <span id="themeLbl">Theme</span>
+    </button>
+  </aside>
+
+  <main>
+    <section id="about">
+      <p class="eyebrow">About</p>
+      <p>I am an MS student at <a href="https://www.postech.ac.kr">POSTECH</a>,
+        advised by <a href="https://namhoonlee.github.io">Namhoon Lee</a>. I am broadly interested in efficient neural networks —
+        making models smaller and faster to run without giving up accuracy.</p>
+      <p>My work centers on model compression, including pruning
+        and quantization, with a focus on compressing large models while preserving
+        their downstream performance.</p>
+    </section>
+
+    <section id="news">
+      <p class="eyebrow">News</p>
+      <ul class="news">
+        <li><time>2026.07</time><span class="body">I launched this personal website. 🎉</span></li>
+        <li><time>2026.07</time><span class="body">I will be attending ICML 2026 this July.</span></li>
+        <li><time>2026.01</time><span class="body">Our paper on pushing large language models to extreme sparsity has been accepted to ICLR 2026! 🎉</span></li>
+        <li><time>2025.04</time><span class="body">I was selected as a <a href="https://www.ikef.or.kr/">Kwanjeong Educational Foundation</a> Scholar. 🎓</span></li>
+        <li><time>2025.03</time><span class="body">I began my M.S. at POSTECH, where I am advised by <a href="https://namhoonlee.github.io">Namhoon Lee</a>.</span></li>
+      </ul>
+    </section>
+
+    <section id="publications">
+      <p class="eyebrow">Publications</p>
+
+      <article class="pub">
+        <h3>A Step Towards Extremely Sparse Large Language Models</h3>
+        <p class="authors"><span class="me">Hyeondo Jang</span>, Kwanhee Lee, Dongyeop Lee, Namhoon Lee</p>
+        <p class="venue">Under Review</p>
+      </article>
+
+      <article class="pub">
+        <h3>The Unseen Frontier: Pushing the Limits of LLM Sparsity with Surrogate-Free ADMM</h3>
+        <p class="authors">Kwanhee Lee, <span class="me">Hyeondo Jang</span>, Dongyeop Lee, Dan Alistarh, Namhoon Lee</p>
+        <p class="venue">ICLR 2026</p>
+        <div class="plinks"><a href="https://arxiv.org/abs/2510.01650">arXiv</a><a href="https://github.com/log-postech/elsa">Code</a></div>
+      </article>
+    </section>
+
+    <section id="experience">
+      <p class="eyebrow">Experience</p>
+      <div class="row">
+        <span class="inst">AI Research Engineer</span>
+        <span class="when">2024.09 – 2025.01</span>
+        <span class="sub">LG Energy Solution · AI Technology Team, Seoul</span>
+      </div>
+      <div class="row">
+        <span class="inst">Battery System Research Engineer</span>
+        <span class="when">2023.07 – 2024.08</span>
+        <span class="sub">LG Energy Solution · SOX Algorithm Team, Gwacheon</span>
+      </div>
+      <div class="row">
+        <span class="inst">Student Researcher</span>
+        <span class="when">2021.09 – 2021.12</span>
+        <span class="sub">KIST (Korea Institute of Science and Technology) · <a href="https://www.ansurlab.com/">ANSUR Lab</a></span>
+      </div>
+    </section>
+
+    <section id="education">
+      <p class="eyebrow">Education</p>
+      <div class="row">
+        <span class="inst">POSTECH</span>
+        <span class="when">2025.03 – Present</span>
+        <span class="sub">M.S. student</span>
+      </div>
+      <div class="row">
+        <span class="inst">Hanyang University</span>
+        <span class="when">2017.03 – 2023.02</span>
+        <span class="sub">B.S. in Electrical Engineering</span>
+      </div>
+    </section>
+
+    <footer>
+      © 2026 Hyeondo Jang · Last updated 2026.07
+    </footer>
+  </main>
+</div>
+
+<script>
+  (function(){
+    var root=document.documentElement, btn=document.getElementById('themeBtn'),
+        lbl=document.getElementById('themeLbl');
+    var saved=null; try{saved=localStorage.getItem('theme');}catch(e){}
+    if(saved){root.setAttribute('data-theme',saved);}
+    function cur(){return root.getAttribute('data-theme')||'light';} // default: white/light
+    function paint(){lbl.textContent=cur()==='dark'?'Light':'Dark';}
+    paint();
+    btn.addEventListener('click',function(){
+      var next=cur()==='dark'?'light':'dark';
+      root.setAttribute('data-theme',next);
+      try{localStorage.setItem('theme',next);}catch(e){}
+      paint();
+    });
+    // scrollspy for section nav
+    var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+    var map={};links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+    if('IntersectionObserver' in window){
+      var obs=new IntersectionObserver(function(es){
+        es.forEach(function(e){
+          if(e.isIntersecting){links.forEach(function(a){a.classList.remove('active');});
+            if(map[e.target.id])map[e.target.id].classList.add('active');}
+        });
+      },{rootMargin:'-20% 0px -70% 0px'});
+      document.querySelectorAll('main section').forEach(function(s){obs.observe(s);});
+    }
+  })();
+</script>
+</body>
+</html>
