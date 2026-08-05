@@ -13,132 +13,7 @@
 <meta property="og:description" content="MS student at POSTECH — efficient neural networks, model compression, pruning, quantization.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://hyeondo-jang.github.io/">
-<style>
-  :root{
-    --bg:#fafbfc; --surface:#ffffff; --text:#191f26; --muted:#59636f;
-    --faint:#8b95a1; --border:#e7ebef; --accent:#0e7a95; --accent-2:#0b6178;
-    --chip-bg:#eef4f6; --sel:#cfe8ef;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-    --mono:"SF Mono","JetBrains Mono","Roboto Mono",ui-monospace,Menlo,Consolas,monospace;
-    --maxw:1040px;
-  }
-  /* Default is always white/light; dark applies only via the toggle (data-theme="dark"). */
-  :root[data-theme="light"]{
-    --bg:#fafbfc; --surface:#ffffff; --text:#191f26; --muted:#59636f;
-    --faint:#8b95a1; --border:#e7ebef; --accent:#0e7a95; --accent-2:#0b6178;
-    --chip-bg:#eef4f6; --sel:#cfe8ef;
-  }
-  :root[data-theme="dark"]{
-    --bg:#0e1114; --surface:#151a1f; --text:#e4e9ee; --muted:#9aa5b1;
-    --faint:#6b7682; --border:#232a31; --accent:#45b6d4; --accent-2:#62c4de;
-    --chip-bg:#17232a; --sel:#123039;
-  }
-
-  *{box-sizing:border-box}
-  ::selection{background:var(--sel)}
-  html{scroll-behavior:smooth}
-  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
-       font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;}
-
-  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(20px,5vw,56px);
-        display:grid;grid-template-columns:236px 1fr;gap:clamp(28px,5vw,64px);
-        align-items:start;}
-
-  /* ---------- Sidebar ---------- */
-  .side{position:sticky;top:0;align-self:start;padding:clamp(36px,6vh,64px) 0 40px;}
-  .avatar{width:118px;height:118px;border-radius:50%;background:
-      radial-gradient(120% 120% at 30% 20%,color-mix(in srgb,var(--accent) 26%,var(--surface)),var(--surface));
-      border:1px solid var(--border);display:grid;place-items:center;
-      font-family:var(--mono);font-size:2rem;font-weight:600;color:var(--accent);
-      letter-spacing:.02em;margin-bottom:20px;overflow:hidden;}
-  .avatar img{width:100%;height:100%;object-fit:cover;display:block}
-  .name{font-size:1.5rem;font-weight:650;letter-spacing:-.01em;line-height:1.2;margin:0}
-  .name .kr{color:var(--faint);font-weight:500;font-size:1rem;margin-left:.4em}
-  .role{color:var(--muted);font-size:.92rem;margin:.5rem 0 0}
-  .role a{color:var(--accent);text-decoration:none}
-  .role a:hover{color:var(--accent-2)}
-  .meta{color:var(--faint);font-size:.86rem;margin:.35rem 0 0}
-
-  .links{list-style:none;padding:0;margin:20px 0 0;display:flex;flex-direction:column;gap:2px}
-  .links a{display:flex;align-items:center;gap:9px;padding:5px 0;color:var(--muted);
-           text-decoration:none;font-size:.88rem;transition:color .15s}
-  .links a:hover{color:var(--accent)}
-  .links svg{width:15px;height:15px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.7}
-  .links svg.solid{fill:currentColor;stroke:none}
-
-  nav.toc{margin-top:26px;padding-top:22px;border-top:1px solid var(--border);
-          display:flex;flex-direction:column;gap:1px}
-  nav.toc a{font-family:var(--mono);font-size:.8rem;letter-spacing:.01em;
-            color:var(--faint);text-decoration:none;padding:5px 0;transition:color .15s}
-  nav.toc a:hover,nav.toc a.active{color:var(--accent)}
-
-  .theme{margin-top:24px;background:none;border:1px solid var(--border);border-radius:7px;
-         color:var(--muted);font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;
-         padding:6px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.15s}
-  .theme:hover{border-color:var(--accent);color:var(--accent)}
-  .theme svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8}
-
-  /* ---------- Content ---------- */
-  main{padding:clamp(36px,6vh,64px) 0 80px;min-width:0}
-  section{margin-bottom:46px;scroll-margin-top:28px}
-  section:last-child{margin-bottom:24px}
-  .eyebrow{font-family:var(--mono);font-size:.82rem;letter-spacing:.01em;font-weight:600;
-           color:var(--accent);margin:0 0 16px;display:flex;align-items:center;gap:12px}
-  .eyebrow::after{content:"";flex:1;height:1px;background:var(--border)}
-
-  p{margin:0 0 .9em;max-width:64ch}
-  main a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;transition:.15s}
-  main a:hover{border-bottom-color:var(--accent)}
-  strong{font-weight:650}
-
-  /* News */
-  .news{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
-  .news li{display:grid;grid-template-columns:5.4rem 1fr;gap:14px;font-size:.93rem}
-  .news time{font-family:var(--mono);font-size:.78rem;color:var(--faint);
-             font-variant-numeric:tabular-nums;padding-top:.12rem;white-space:nowrap}
-  .news .body{color:var(--text)}
-
-  /* Publications */
-  .pub{padding:15px 0;border-top:1px solid var(--border)}
-  .pub:first-of-type{border-top:none;padding-top:2px}
-  .pub h3{margin:0 0 4px;font-size:.96rem;font-weight:600;line-height:1.35}
-  .pub .authors{color:var(--muted);font-size:.86rem;margin:0 0 4px}
-  .pub .authors .me{color:var(--text);font-weight:650}
-  .pub .venue{font-family:var(--mono);font-size:.76rem;color:var(--accent);
-              letter-spacing:.02em;margin:0 0 7px}
-  .pub .plinks{display:flex;gap:14px;flex-wrap:wrap}
-  .pub .plinks a{font-family:var(--mono);font-size:.72rem;letter-spacing:.03em;
-                 color:var(--muted);border-bottom:none}
-  .pub .plinks a:hover{color:var(--accent)}
-  .placeholder{color:var(--faint);font-style:italic}
-
-  /* Education / rows */
-  .row{display:grid;grid-template-columns:1fr auto;gap:8px 16px;padding:11px 0;
-       border-top:1px solid var(--border);align-items:baseline}
-  .row:first-of-type{border-top:none}
-  .row .inst{font-weight:600;font-size:.95rem}
-  .row .sub{color:var(--muted);font-size:.86rem;grid-column:1/-1;margin-top:-2px}
-  .row .when{font-family:var(--mono);font-size:.78rem;color:var(--faint);
-             font-variant-numeric:tabular-nums;white-space:nowrap}
-
-  .note{margin-top:8px;font-size:.8rem;color:var(--faint);background:var(--chip-bg);
-        border:1px dashed var(--border);border-radius:8px;padding:9px 12px;max-width:64ch}
-
-  footer{border-top:1px solid var(--border);padding-top:18px;margin-top:8px;
-         font-family:var(--mono);font-size:.72rem;color:var(--faint);letter-spacing:.03em}
-
-  a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
-
-  @media (max-width:760px){
-    .wrap{grid-template-columns:1fr;gap:8px}
-    .side{position:static;padding-bottom:8px}
-    nav.toc{flex-flow:row wrap;gap:4px 16px}
-    main{padding-top:24px}
-    .news li{grid-template-columns:1fr}
-    .news time{padding-top:0}
-  }
-</style>
+<link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 <div class="wrap">
@@ -196,14 +71,12 @@
 
     <section id="news">
       <p class="eyebrow">News</p>
-      <ul class="news">
-        <li><time>2026.07</time><span class="body">Our paper on extreme LLM sparsity received the Best Paper Award at CKAIA 2026! 🏆</span></li>
-        <li><time>2026.07</time><span class="body">I will be attending ICML 2026 this July.</span></li>
-        <li><time>2026.01</time><span class="body">Our paper on pushing large language models to extreme sparsity has been accepted to ICLR 2026! 🎉</span></li>
-        <li><time>2025.11</time><span class="body">Our paper on pushing large language models to extreme sparsity received the Best Paper Award at CKAIA 2025! 🏆</span></li>
-        <li><time>2025.04</time><span class="body">I was selected as a <a href="https://www.ikef.or.kr/">Kwanjeong Educational Foundation</a> Scholar. 🎓</span></li>
-        <li><time>2025.03</time><span class="body">I began my M.S. at POSTECH, where I am advised by <a href="https://namhoonlee.github.io">Namhoon Lee</a>.</span></li>
-      </ul>
+      <!-- Items live in assets/news.js — edit them there, not here. -->
+      <ul class="news" id="newsList" data-limit="5"></ul>
+      <p class="news-more" id="newsMore" hidden>To see more news, click
+        <a href="news.html" target="_blank" rel="noopener">here</a>.</p>
+      <noscript><p class="note">News items need JavaScript to display.
+        You can still read them all on the <a href="news.html">news page</a>.</p></noscript>
     </section>
 
     <section id="publications">
@@ -300,34 +173,7 @@
   </main>
 </div>
 
-<script>
-  (function(){
-    var root=document.documentElement, btn=document.getElementById('themeBtn'),
-        lbl=document.getElementById('themeLbl');
-    var saved=null; try{saved=localStorage.getItem('theme');}catch(e){}
-    if(saved){root.setAttribute('data-theme',saved);}
-    function cur(){return root.getAttribute('data-theme')||'light';} // default: white/light
-    function paint(){lbl.textContent=cur()==='dark'?'Light':'Dark';}
-    paint();
-    btn.addEventListener('click',function(){
-      var next=cur()==='dark'?'light':'dark';
-      root.setAttribute('data-theme',next);
-      try{localStorage.setItem('theme',next);}catch(e){}
-      paint();
-    });
-    // scrollspy for section nav
-    var links=[].slice.call(document.querySelectorAll('nav.toc a'));
-    var map={};links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
-    if('IntersectionObserver' in window){
-      var obs=new IntersectionObserver(function(es){
-        es.forEach(function(e){
-          if(e.isIntersecting){links.forEach(function(a){a.classList.remove('active');});
-            if(map[e.target.id])map[e.target.id].classList.add('active');}
-        });
-      },{rootMargin:'-20% 0px -70% 0px'});
-      document.querySelectorAll('main section').forEach(function(s){obs.observe(s);});
-    }
-  })();
-</script>
+<script src="assets/news.js"></script>
+<script src="assets/site.js"></script>
 </body>
 </html>
