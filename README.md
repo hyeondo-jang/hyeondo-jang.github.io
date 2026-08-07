@@ -1,8 +1,8 @@
-# hyeondojang.github.io
+# hyeondo-jang.github.io
 
 Personal academic homepage of **Hyeondo Jang** (POSTECH) — a single static page.
 
-- Live site: https://hyeondojang.github.io
+- Live site: https://hyeondo-jang.github.io
 - No build step: plain `index.html` + `assets/`. GitHub Pages serves it directly (`.nojekyll`).
 
 ## Edit
