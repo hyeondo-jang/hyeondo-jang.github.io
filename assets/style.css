@@ -70,9 +70,6 @@
   .eyebrow{font-family:var(--mono);font-size:.82rem;letter-spacing:.01em;font-weight:600;
            color:var(--accent);margin:0 0 16px;display:flex;align-items:center;gap:12px}
   .eyebrow::after{content:"";flex:1;height:1px;background:var(--border)}
-  /* order:1 parks the note past the ::after rule, pinning it to the right edge. */
-  .eyebrow .eqnote{order:1;font-family:var(--sans);font-size:.76rem;font-weight:400;
-                   letter-spacing:0;color:var(--faint);white-space:nowrap}
 
   /* 64ch keeps prose readable; author lists and section notes opt out below. */
   p{margin:0 0 .9em;max-width:64ch}
@@ -99,6 +96,9 @@
   .pub .plinks a{font-family:var(--mono);font-size:.72rem;letter-spacing:.03em;
                  color:var(--muted);border-bottom:none}
   .pub .plinks a:hover{color:var(--accent)}
+  /* Sits under the section rule, pulled up against the .eyebrow's 16px gap. */
+  .pubnote{text-align:right;color:var(--faint);font-size:.78rem;max-width:none;
+           margin:-10px 0 12px}
   .placeholder{color:var(--faint);font-style:italic}
 
   /* Education / rows */
