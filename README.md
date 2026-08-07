@@ -14,7 +14,14 @@ Personal academic homepage of **Hyeondo Jang** (POSTECH) — a single static pag
 
 ## Publish
 
+GitHub Pages serves the **`gh-pages`** branch, not `main`. Pushing `main` alone
+does **not** update the live site — you must fast-forward `gh-pages` too:
+
 ```bash
-git add -A && git commit -m "update" && git push
+git add -A && git commit -m "update"
+git push origin main
+git push origin main:gh-pages   # this is what actually deploys
 ```
-GitHub Pages redeploys automatically (Settings → Pages → Deploy from branch → `main` / root).
+
+The build takes a minute or two, and the CDN caches for 10 more
+(`cache-control: max-age=600`), so hard-refresh if you still see the old page.
