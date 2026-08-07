@@ -89,7 +89,6 @@
   .pub h3{margin:0 0 4px;font-size:.96rem;font-weight:600;line-height:1.35}
   .pub .authors{color:var(--muted);font-size:.86rem;margin:0 0 4px}
   .pub .authors .me{color:var(--text);font-weight:650}
-  .pub .eq{color:var(--faint);font-size:.78rem;margin:0 0 4px}
   .pub .venue{font-family:var(--mono);font-size:.76rem;color:var(--accent);
               letter-spacing:.02em;margin:0 0 7px}
   .pub .plinks{display:flex;gap:14px;flex-wrap:wrap}
