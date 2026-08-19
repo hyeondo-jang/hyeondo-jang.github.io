@@ -130,46 +130,154 @@
 
   <figure>
     <div class="canvas">
-    <svg viewBox="0 0 560 336" width="560" role="img"
-         aria-label="The Qwen3-8B stack: an embedding table, then 36 identical decoder blocks of RMSNorm, multi-head attention, a residual add, RMSNorm, a SwiGLU feed-forward network and a second residual add, then the LM head.">
-      <defs><marker id="ar2" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
+    <svg viewBox="0 0 560 582" width="560" role="img"
+         aria-label="The Qwen3-8B stack: the prompt is tokenized into T ids, embedded to a T by 4096 matrix, passed through 36 identical decoder blocks of RMSNorm, multi-head attention, a residual add, RMSNorm, a SwiGLU feed-forward network and a second residual add, then through an LM head of RMSNorm and the output projection to give T by 151,936 logits.">
+      <defs><marker id="ar3" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
 
-      <rect x="110" y="52" width="310" height="228" rx="6" fill="none" stroke="var(--accent)" stroke-width="1"/>
-      <text class="ac" x="430" y="160">decoder block</text>
-      <text class="ac" x="430" y="175">× L = 36</text>
+      <rect x="118" y="176" width="264" height="238" rx="6" fill="none" stroke="var(--accent)" stroke-width="1"/>
+      <text class="ac sm" x="118" y="169">decoder block  × L = 36</text>
+      <rect x="118" y="430" width="264" height="88" rx="6" fill="none" stroke="var(--accent)" stroke-width="1"/>
+      <text class="ac sm" x="118" y="423">LM head</text>
 
-      <rect class="sb" x="145" y="10" width="190" height="26" rx="3"/>
-      <text class="mid" x="240" y="27">embedding table <tspan class="bd">E</tspan></text>
-      <path class="ln" d="M240 36 V60" marker-end="url(#ar2)"/>
-      <rect class="sb" x="145" y="62" width="190" height="20" rx="3"/>
-      <text class="mid sm" x="240" y="76">RMSNorm</text>
-      <path class="ln" d="M240 82 V94" marker-end="url(#ar2)"/>
-      <rect class="qb" x="145" y="96" width="190" height="28" rx="3"/>
-      <text class="mid" x="240" y="114">Multi-Head Attention</text>
-      <path class="ln" d="M240 124 V141" marker-end="url(#ar2)"/>
-      <text class="xs" x="346" y="136">T × 4096</text>
-      <circle class="st" cx="240" cy="152" r="9"/>
-      <text class="mid" x="240" y="156">+</text>
-      <path class="ln" d="M240 161 V172" marker-end="url(#ar2)"/>
-      <rect class="sb" x="145" y="174" width="190" height="20" rx="3"/>
-      <text class="mid sm" x="240" y="188">RMSNorm</text>
-      <path class="ln" d="M240 194 V206" marker-end="url(#ar2)"/>
-      <rect class="vb" x="145" y="208" width="190" height="28" rx="3"/>
-      <text class="mid" x="240" y="226">Feed-Forward (SwiGLU)</text>
-      <path class="ln" d="M240 236 V253" marker-end="url(#ar2)"/>
-      <text class="xs" x="346" y="248">T × 4096</text>
-      <circle class="st" cx="240" cy="264" r="9"/>
-      <text class="mid" x="240" y="268">+</text>
-      <path class="ln" d="M240 273 V294" marker-end="url(#ar2)"/>
-      <rect class="sb" x="145" y="296" width="190" height="26" rx="3"/>
-      <text class="mid" x="240" y="313">RMSNorm → W<tspan dy="3" font-size="8">lm</tspan></text>
+      <rect class="st" x="150" y="14" width="200" height="30" rx="3"/>
+      <text class="mid mo" x="250" y="33">“What is the capital of France?”</text>
+      <path class="ln" d="M250 44 V66" marker-end="url(#ar3)"/>
+      <rect class="sb" x="150" y="68" width="200" height="24" rx="3"/>
+      <text class="mid sm" x="250" y="84">tokenizer</text>
+      <path class="ln" d="M250 92 V114" marker-end="url(#ar3)"/>
+      <text class="xs" x="394" y="104">(T,)</text>
+      <rect class="sb" x="150" y="116" width="200" height="30" rx="3"/>
+      <text class="mid" x="250" y="135">embedding table <tspan class="bd">E</tspan></text>
+      <path class="ln" d="M250 146 V186" marker-end="url(#ar3)"/>
+      <text class="xs" x="394" y="162">(T, 4096)</text>
+      <rect class="sb" x="150" y="188" width="200" height="20" rx="3"/>
+      <text class="mid sm" x="250" y="202">RMSNorm</text>
+      <path class="ln" d="M250 208 V220" marker-end="url(#ar3)"/>
+      <rect class="qb" x="150" y="222" width="200" height="30" rx="3"/>
+      <text class="mid" x="250" y="241">Multi-Head Attention</text>
+      <path class="ln" d="M250 252 V269" marker-end="url(#ar3)"/>
+      <text class="xs" x="394" y="264">(T, 4096)</text>
+      <circle class="st" cx="250" cy="280" r="9"/>
+      <text class="mid" x="250" y="284">+</text>
+      <path class="ln" d="M250 289 V300" marker-end="url(#ar3)"/>
+      <rect class="sb" x="150" y="302" width="200" height="20" rx="3"/>
+      <text class="mid sm" x="250" y="316">RMSNorm</text>
+      <path class="ln" d="M250 322 V334" marker-end="url(#ar3)"/>
+      <rect class="vb" x="150" y="336" width="200" height="30" rx="3"/>
+      <text class="mid" x="250" y="355">Feed-Forward (SwiGLU)</text>
+      <path class="ln" d="M250 366 V383" marker-end="url(#ar3)"/>
+      <text class="xs" x="394" y="378">(T, 4096)</text>
+      <circle class="st" cx="250" cy="394" r="9"/>
+      <text class="mid" x="250" y="398">+</text>
+      <path class="ln" d="M250 403 V440" marker-end="url(#ar3)"/>
+      <rect class="sb" x="150" y="442" width="200" height="20" rx="3"/>
+      <text class="mid sm" x="250" y="456">RMSNorm</text>
+      <path class="ln" d="M250 462 V474" marker-end="url(#ar3)"/>
+      <rect class="st" x="150" y="476" width="200" height="30" rx="3"/>
+      <text class="mid" x="250" y="495">W<tspan dy="3" font-size="8">lm</tspan></text>
+      <path class="ln" d="M250 506 V536" marker-end="url(#ar3)"/>
+      <rect class="ab" x="150" y="538" width="200" height="30" rx="3"/>
+      <text class="mid" x="250" y="557">logits</text>
+      <text class="xs" x="394" y="556">(T, 151,936)</text>
 
-      <path class="ln" d="M240 56 H126 V152 H229" marker-end="url(#ar2)"/>
-      <path class="ln" d="M240 166 H136 V264 H229" marker-end="url(#ar2)"/>
+      <path class="ln" d="M250 182 H130 V280 H239" marker-end="url(#ar3)"/>
+      <path class="ln" d="M250 294 H138 V394 H239" marker-end="url(#ar3)"/>
     </svg>
     </div>
     <figcaption><b>Figure 2.</b> The Qwen3-8B decoder block, stacked 36 times.</figcaption>
   </figure>
+
+  <p>The stack is fixed-width. Every stage inside a decoder block maps a
+    $\Lctx \times \dmodel$ matrix to another matrix of the same shape, with
+    $\dmodel = 4096$ for Qwen3-8B. Only the two ends of the figure change shape: the
+    tokenizer produces integers, and the LM head widens the last axis to the vocabulary.</p>
+
+  <h3>Embedding</h3>
+
+  <p>The tokenizer cuts the prompt into $\Lctx$ sub-word ids $(t_1,\dots,t_{\Lctx})$, each one an
+    index into an embedding table $\mat{E}\in\R^{\Vocab\times\dmodel}$ with
+    $\Vocab = 151{,}936$. The embedding layer is a row lookup — no arithmetic at all:</p>
+
+  \begin{equation}
+    \mat{X}^{(0)} \;=\;
+    \begin{bmatrix} \mat{E}_{t_1} \\ \vdots \\ \mat{E}_{t_{\Lctx}} \end{bmatrix}
+    \;\in\; \R^{\Lctx \times \dmodel}
+  \end{equation}
+
+  <p>One row per token, one column per feature. This is the shape everything downstream preserves,
+    and it is called the <strong>residual stream</strong>.</p>
+
+  <h3>RMSNorm</h3>
+
+  <p>Each row is rescaled to a fixed norm before it enters attention or the feed-forward network.
+    With a learned gain $\vect{g}\in\R^{\dmodel}$ and elementwise product $\odot$:</p>
+
+  \begin{equation}
+    \RMSNorm(\vect{x}) \;=\;
+    \frac{\vect{x}}{\sqrt{\dfrac{1}{\dmodel}\displaystyle\sum_{i=1}^{\dmodel} x_i^{2}}}
+    \;\odot\; \vect{g}
+  \end{equation}
+
+  <p>It acts on each row independently and moves no tokens, so it costs almost nothing.</p>
+
+  <h3>Multi-head attention</h3>
+
+  <p>This is the only stage where information moves between token positions. Each of the
+    $\nq = 32$ heads projects the same input into a query, a key and a value of width
+    $\dhead = 128$, then mixes rows with a causal mask $\mat{M}$ that sets
+    $M_{ij} = -\infty$ for $j > i$:</p>
+
+  \begin{equation}
+    \mat{H}_i \;=\; \Attn\!\left(\mat{X}\mat{W}_Q^{(i)},\; \mat{X}\mat{W}_K^{(i)},\;
+    \mat{X}\mat{W}_V^{(i)}\right), \qquad i = 1,\dots,\nq
+  \end{equation}
+
+  \begin{equation}
+    \Attn(\mat{Q},\mat{K},\mat{V})
+    \;=\; \softmax\!\left(\frac{\mat{Q}\mat{K}\T}{\sqrt{\dhead}} + \mat{M}\right)\mat{V}
+  \end{equation}
+
+  <p>The heads never see each other inside the attention; the output projection $\mat{W}_O$ is
+    what combines what they found:</p>
+
+  \begin{equation}
+    \MHA(\mat{X}) \;=\; \big[\,\mat{H}_1 \;\|\; \cdots \;\|\; \mat{H}_{\nq}\,\big]\,\mat{W}_O,
+    \qquad \mat{W}_O \in \R^{\nq \dhead \times \dmodel}
+  \end{equation}
+
+  <h3>Feed-forward network</h3>
+
+  <p>Qwen3 uses SwiGLU, three matrices per block, with inner width
+    $\dff = 12{,}288 = 3\dmodel$:</p>
+
+  \begin{equation}
+    \FFN(\mat{X}) \;=\;
+    \big[\, \silu(\mat{X}\mat{W}_{\mathrm{gate}}) \odot \mat{X}\mat{W}_{\mathrm{up}} \,\big]\,
+    \mat{W}_{\mathrm{down}}
+  \end{equation}
+
+  <p>Unlike attention, the feed-forward network acts on each row on its own — token $i$'s output
+    depends only on token $i$'s input. It is also where most of the parameters live.</p>
+
+  <h3>The block, and the head</h3>
+
+  <p>Block $\ell$ adds two corrections to the residual stream rather than replacing it:</p>
+
+  \begin{equation}
+    \mat{X}' \;=\; \mat{X}^{(\ell-1)} + \MHA\!\left(\RMSNorm(\mat{X}^{(\ell-1)})\right)
+  \end{equation}
+
+  \begin{equation}
+    \mat{X}^{(\ell)} \;=\; \mat{X}' + \FFN\!\left(\RMSNorm(\mat{X}')\right)
+  \end{equation}
+
+  <p>After $\nlayer = 36$ such blocks, the LM head normalizes once more and projects onto the
+    vocabulary, giving one score per vocabulary entry per position:</p>
+
+  \begin{equation}
+    \text{logits} \;=\; \RMSNorm\!\left(\mat{X}^{(\nlayer)}\right) \mat{W}_{\mathrm{lm}}
+    \;\in\; \R^{\Lctx \times \Vocab}
+  \end{equation}
 
   <h2 id="attention"><span class="num">3</span>Attention, one head at a time</h2>
   <figure>
