@@ -528,26 +528,47 @@
 
   <h2 id="decode"><span class="num">4</span>Decode: what changes</h2>
 
-  <p><a href="#prefill">§3</a> is written for prefill, where all $\Lctx$ prompt tokens go through the
-    stack at once. Decode runs the same weights through the same code on a single row, and most of the
-    figure simply narrows: the tokenizer emits one id, the embedding returns one row, RMSNorm
-    rescales that row, and the feed-forward network — which acts on each row independently — sees a
-    $1\times\dmodel$ input. None of those operators can tell the difference.</p>
+  <p><a href="#prefill">§3</a> is written for prefill, where all $\Lctx$ prompt tokens go through
+    the stack at once. Decode runs the same weights through the same code on a single row, and most
+    of the figure simply narrows: the tokenizer emits one id, the embedding returns one row,
+    RMSNorm rescales that row, and the feed-forward network — which acts on each row independently
+    — sees a $1\times\dmodel$ input. None of those operators can tell the difference.</p>
 
-  <p>Attention is the exception, because it is the only operator that mixes rows. At decode step
-    $n$ the query is a single row, but the keys and values still span the whole context, so the
-    per-head computation becomes</p>
+  <p>Attention is the exception, because it is the only operator that mixes rows. Write
+    $\mat{O} = \softmax\!\big(\mat{Q}\mat{K}\T/\sqrt{\dhead} + \mat{M}\big)\mat{V}$ for the prefill
+    output of one head. At decode step $n$ the model needs only row $n$ of that matrix, and
+    unfolding that row is what turns the operation into a matrix–vector product:</p>
 
   \begin{equation}
-    \vect{o} \;=\; \softmax\!\left(\frac{\vect{q}\,\mat{K}_{1:n}\T}{\sqrt{\dhead}}\right)
-    \mat{V}_{1:n} \;\in\; \R^{1\times\dhead}
+  \begin{aligned}
+    \vect{o} \;=\; \mat{O}_{n,:}
+      &\;=\; \Big[\softmax\!\Big(\tfrac{\mat{Q}\mat{K}\T}{\sqrt{\dhead}}
+             + \mat{M}\Big)\mat{V}\Big]_{n,:} \\[3pt]
+      &\;=\; \softmax\!\Big(\tfrac{(\mat{Q}\mat{K}\T)_{n,:}}{\sqrt{\dhead}}
+             + \mat{M}_{n,:}\Big)\mat{V} \\[3pt]
+      &\;=\; \softmax\!\Big(\tfrac{\mat{Q}_{n,:}\mat{K}\T}{\sqrt{\dhead}}
+             + \mat{M}_{n,:}\Big)\mat{V} \\[3pt]
+      &\;=\; \softmax\!\Big(\tfrac{\mat{Q}_{n,:}\mat{K}_{1:n}\T}{\sqrt{\dhead}}\Big)\mat{V}_{1:n}
+             \\[3pt]
+      &\;=\; \softmax\!\Big(\tfrac{\vect{q}\,\mat{K}_{1:n}\T}{\sqrt{\dhead}}\Big)\mat{V}_{1:n}
+  \end{aligned}
   \end{equation}
 
-  <p>with $\vect{q}\in\R^{1\times\dhead}$ and
-    $\mat{K}_{1:n},\mat{V}_{1:n}\in\R^{n\times\dhead}$. The score matrix collapses from
-    $\Lctx\times\Lctx$ to $1\times n$, and the causal mask is no longer needed — a query at
-    position $n$ has nothing later to look at. The keys and values for positions $1..n-1$ were
-    already computed on earlier steps, so they are read back rather than recomputed.</p>
+  <p>Line by line: the softmax is row-wise, so row $n$ of the output depends only on row $n$ of the
+    scores; row $n$ of $\mat{Q}\mat{K}\T$ is $\mat{Q}_{n,:}\mat{K}\T$; the causal mask kills every
+    column $j > n$, which drops $\mat{K}$ and $\mat{V}$ to their first $n$ rows and removes the
+    mask altogether; and writing $\vect{q} \defeq \mat{Q}_{n,:} \in \R^{1\times\dhead}$ leaves</p>
+
+  \begin{equation}
+    \vect{q}\,\mat{K}_{1:n}\T \;\in\; \R^{1\times n}
+    \qquad\text{where prefill had}\qquad
+    \mat{Q}\mat{K}\T \;\in\; \R^{\Lctx\times\Lctx}
+  \end{equation}
+
+  <p>so the score matrix has collapsed to a single row, and
+    $\vect{o}\in\R^{1\times\dhead}$. Of the operands, only $\vect{q}$ and the new row of
+    $\mat{K}$ and $\mat{V}$ are computed at this step — rows $1..n-1$ were produced on earlier
+    steps and are read back rather than recomputed.</p>
 
   <p>One more asymmetry, in the LM head rather than in an operator: prefill produces logits at
     every position and uses only the last row, while decode produces the one row it needs.</p>
