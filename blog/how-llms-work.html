@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How LLMs work, with Qwen3-8B — Hyeondo Jang</title>
+<meta name="description" content="How a decoder-only LLM actually runs, using Qwen3-8B as the running example: the decoder block, attention, MHA and GQA, prefill vs. decode, the KV cache, and arithmetic intensity.">
+<meta name="author" content="Hyeondo Jang">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjMGU3YTk1Ii8+PHRleHQgeD0iNTAiIHk9IjUwIiBkeT0iLjM0ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJ1aS1tb25vc3BhY2UsU0ZNb25vLVJlZ3VsYXIsTWVubG8sbW9ub3NwYWNlIiBmb250LXNpemU9IjQ0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjZmZmZmZmIj5ISjwvdGV4dD48L3N2Zz4=">
+<!-- Open Graph -->
+<meta property="og:title" content="How LLMs work, with Qwen3-8B">
+<meta property="og:description" content="How a decoder-only LLM actually runs, with Qwen3-8B as the running example.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://hyeondo-jang.github.io/blog/how-llms-work.html">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main class="subpage post">
+  <div class="topbar">
+    <a class="backlink" href="../blog.html">← Blog</a>
+    <button class="theme" id="themeBtn" aria-label="Toggle dark mode">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>
+      <span id="themeLbl">Theme</span>
+    </button>
+  </div>
+
+  <h1>How LLMs work, with Qwen3-8B</h1>
+  <p class="byline">2026.08.19 · Hyeondo Jang</p>
+
+  <p class="note">Draft — intro to come. Running example throughout: Qwen3-8B
+    (d = 4096, L = 36, 32 query heads, 8 K/V heads, d_h = 128, d_ff = 12,288,
+    vocab 151,936).</p>
+
+  <div class="toc-box">
+    <p>Contents</p>
+    <ol>
+      <li><span class="n">1</span><a href="#overview">Overview: how a prompt becomes text</a></li>
+      <li><span class="n">2</span><a href="#stack">Inside the stack: one decoder block</a></li>
+      <li><span class="n">3</span><a href="#attention">Attention, one head at a time</a></li>
+      <li><span class="n">4</span><a href="#mha">Multi-head attention</a></li>
+      <li><span class="n">5</span><a href="#gqa">MHA → MQA → GQA</a></li>
+      <li><span class="n">6</span><a href="#phases">The two phases: prefill and decode</a></li>
+      <li><span class="n">7</span><a href="#kv">The KV cache</a></li>
+      <li><span class="n">8</span><a href="#intensity">Arithmetic intensity and the roofline</a></li>
+      <li><span class="n">A</span><a href="#cheat">Cheat sheet</a></li>
+    </ol>
+  </div>
+
+  <!-- ==================================================================== -->
+  <h2 id="overview"><span class="num">1</span>Overview: how a prompt becomes text</h2>
+  <p class="note">Draft — figure and tables are in place; prose to come.</p>
+
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 700 300" width="700" role="img"
+         aria-label="End-to-end pipeline of a decoder-only LLM and the loop it sits in.">
+      <defs>
+        <marker id="p1a" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7"
+                orient="auto-start-reverse">
+          <path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/>
+        </marker>
+        <marker id="p1b" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7"
+                orient="auto-start-reverse">
+          <path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+
+      <!-- row 1 -->
+      <rect class="st" x="14"  y="58"  width="116" height="46" rx="3"/>
+      <text class="mid" x="72" y="77">“The cat sat</text>
+      <text class="mid" x="72" y="93">on the”</text>
+
+      <rect class="st" x="176" y="66"  width="104" height="30" rx="3"/>
+      <text class="mid" x="228" y="85">tokenizer</text>
+
+      <rect class="st" x="330" y="58"  width="116" height="46" rx="3"/>
+      <text class="mid" x="388" y="77">embedding</text>
+      <text class="mid" x="388" y="93">table <tspan class="bd">E</tspan></text>
+
+      <rect class="st" x="492" y="66"  width="62"  height="30" rx="3"/>
+      <text class="mid" x="523" y="85">X<tspan dy="-4" font-size="8">(0)</tspan></text>
+      <text class="sm" x="562" y="85">5 × 4096</text>
+
+      <path class="ln" d="M130 81 H172" marker-end="url(#p1a)"/>
+      <path class="ln" d="M280 81 H326" marker-end="url(#p1a)"/>
+      <text class="sm mid" x="303" y="74">ids t₁..t₅</text>
+      <path class="ln" d="M446 81 H488" marker-end="url(#p1a)"/>
+      <text class="sm mid" x="459" y="74">row lookup</text>
+
+      <!-- row 1 → row 2 -->
+      <path class="ln" d="M523 96 V132 H89 V163" marker-end="url(#p1a)"/>
+
+      <!-- row 2 -->
+      <rect class="qb" x="14"  y="167" width="150" height="46" rx="3"/>
+      <text class="mid" x="89"  y="186">decoder block</text>
+      <text class="mid" x="89"  y="202">× L = 36</text>
+
+      <rect class="st" x="216" y="167" width="118" height="46" rx="3"/>
+      <text class="mid" x="275" y="186">final norm</text>
+      <text class="mid" x="275" y="202">+ W<tspan dy="3" font-size="8">lm</tspan></text>
+
+      <rect class="st" x="386" y="175" width="74"  height="30" rx="3"/>
+      <text class="mid" x="423" y="194">logits</text>
+      <text class="sm mid" x="423" y="220">5 × 151,936</text>
+
+      <rect class="st" x="512" y="167" width="116" height="46" rx="3"/>
+      <text class="mid" x="570" y="186">softmax</text>
+      <text class="mid" x="570" y="202">+ sample</text>
+      <text class="sm mid" x="570" y="159">last row only</text>
+
+      <path class="ln" d="M164 190 H212" marker-end="url(#p1a)"/>
+      <path class="ln" d="M334 190 H382" marker-end="url(#p1a)"/>
+      <path class="ln" d="M460 190 H508" marker-end="url(#p1a)"/>
+
+      <!-- KV cache -->
+      <rect class="kb" x="14" y="250" width="150" height="34" rx="3"/>
+      <text class="mid" x="89" y="271">KV cache</text>
+      <path class="ln" d="M89 215 V248" marker-start="url(#p1a)" marker-end="url(#p1a)"/>
+
+      <!-- output + feedback -->
+      <rect class="ab" x="512" y="250" width="116" height="34" rx="3"/>
+      <text class="mid" x="570" y="271">“mat”</text>
+      <path class="ln" d="M570 215 V248" marker-end="url(#p1a)"/>
+
+      <path class="lna" d="M628 267 H676 V26 H72 V54" marker-end="url(#p1b)"/>
+      <text class="sm mid ac" x="374" y="20">append the new token and run again</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 1.</b> One pass of a decoder-only LLM, and the loop it sits in. The
+      residual stream keeps the same shape through all 36 blocks; only the width of the vocabulary
+      axis at the end is different.</figcaption>
+  </figure>
+
+  <h3>The pipeline, with shapes</h3>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Stage</th><th>Object</th><th>Shape</th><th class="flow">What happens</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>tokenize</td><td>(<span class="m">t</span>₁, …, <span class="m">t</span>₅)</td><td>5</td>
+            <td class="flow">text → integer ids</td></tr>
+        <tr><td>embed</td><td><span class="m">X</span>⁽⁰⁾</td><td>5 × 4096</td>
+            <td class="flow">one table row per id</td></tr>
+        <tr><td>block 1</td><td><span class="m">X</span>⁽¹⁾</td><td>5 × 4096</td>
+            <td class="flow">attention, then FFN</td></tr>
+        <tr><td>⋮</td><td>⋮</td><td>⋮</td><td class="flow">× 36</td></tr>
+        <tr><td>block 36</td><td><span class="m">X</span>⁽³⁶⁾</td><td>5 × 4096</td><td class="flow"></td></tr>
+        <tr><td>LM head</td><td>logits</td><td>5 × 151,936</td>
+            <td class="flow">a score for every vocabulary entry</td></tr>
+        <tr><td>sample</td><td><span class="m">t</span>₆</td><td>1</td>
+            <td class="flow">softmax the <em>last</em> row, draw a token</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Where the cost is</h3>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Stage</th><th class="flow">Cost</th><th>Discussed in</th></tr></thead>
+      <tbody>
+        <tr><td>tokenizer, embedding lookup</td>
+            <td class="flow">negligible; a table read</td><td>—</td></tr>
+        <tr><td>attention inside each block</td>
+            <td class="flow">mixes tokens; <span class="m">O</span>(<span class="m">T</span>²) scores; owns the cache</td>
+            <td><a href="#attention">§3</a>–<a href="#gqa">§5</a></td></tr>
+        <tr><td>FFN inside each block</td>
+            <td class="flow">65% of the weights, hence of the bytes</td>
+            <td><a href="#stack">§2</a></td></tr>
+        <tr><td>LM head</td>
+            <td class="flow">one 4096 × 151,936 matmul per step</td>
+            <td><a href="#stack">§2</a></td></tr>
+        <tr><td>the loop itself</td>
+            <td class="flow">repeats all of the above, once per token</td>
+            <td><a href="#phases">§6</a>–<a href="#intensity">§8</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <!-- ==================================================================== -->
+  <!--  SECTIONS 2-8 AND THE APPENDIX GO HERE.                              -->
+  <!--  Reference material for these sections (LaTeX, not prose to paste):   -->
+  <!--  ~/log_teams/reading_group/0819_team_rg/supplementary/sections/       -->
+  <!-- ==================================================================== -->
+
+  <h2 id="stack"><span class="num">2</span>Inside the stack: one decoder block</h2>
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 560 372" width="560" role="img" aria-label="One decoder block: RMSNorm, multi-head attention, residual add, RMSNorm, feed-forward, residual add.">
+      <defs><marker id="f2a" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
+      <rect class="sb" x="170" y="10" width="200" height="26" rx="3"/>
+      <text class="mid" x="270" y="27">embedding table <tspan class="bd">E</tspan></text>
+      <text class="sm" x="380" y="48">X<tspan dy="-4" font-size="8">(0)</tspan><tspan dy="4"> ∈ ℝ</tspan><tspan dy="-4" font-size="8">T × 4096</tspan></text>
+
+      <rect class="sb" x="170" y="62" width="200" height="20" rx="3"/>
+      <text class="mid sm" x="270" y="76">RMSNorm</text>
+
+      <rect class="qb" x="170" y="94" width="200" height="38" rx="3"/>
+      <text class="mid" x="270" y="111">Multi-Head Attention</text>
+      <text class="mid sm" x="270" y="124">mixes <tspan font-style="italic">tokens</tspan></text>
+
+      <circle class="st" cx="270" cy="152" r="9"/>
+      <text class="mid" x="270" y="156">+</text>
+
+      <rect class="sb" x="170" y="172" width="200" height="20" rx="3"/>
+      <text class="mid sm" x="270" y="186">RMSNorm</text>
+
+      <rect class="vb" x="170" y="204" width="200" height="38" rx="3"/>
+      <text class="mid" x="270" y="221">Feed-Forward (SwiGLU)</text>
+      <text class="mid sm" x="270" y="234">mixes <tspan font-style="italic">features</tspan></text>
+
+      <circle class="st" cx="270" cy="262" r="9"/>
+      <text class="mid" x="270" y="266">+</text>
+
+      <rect class="sb" x="170" y="284" width="200" height="26" rx="3"/>
+      <text class="mid" x="270" y="301">RMSNorm → W<tspan dy="3" font-size="8">lm</tspan></text>
+      <text class="mid sm" x="270" y="336">logits ∈ ℝ<tspan dy="-4" font-size="8">T × 151,936</tspan></text>
+
+      <path class="ln" d="M270 36 V60" marker-end="url(#f2a)"/>
+      <path class="ln" d="M270 82 V92" marker-end="url(#f2a)"/>
+      <path class="ln" d="M270 132 V141" marker-end="url(#f2a)"/>
+      <path class="ln" d="M270 161 V170" marker-end="url(#f2a)"/>
+      <path class="ln" d="M270 192 V202" marker-end="url(#f2a)"/>
+      <path class="ln" d="M270 242 V251" marker-end="url(#f2a)"/>
+      <path class="ln" d="M270 271 V282" marker-end="url(#f2a)"/>
+      <path class="ln" d="M270 310 V322" marker-end="url(#f2a)"/>
+
+      <path class="ln" d="M270 48 H140 V152 H259" marker-end="url(#f2a)"/>
+      <path class="ln" d="M270 166 H152 V262 H259" marker-end="url(#f2a)"/>
+
+      <path class="lna" style="stroke-dasharray:none" d="M392 62 H399 V272 H392"/>
+      <text x="407" y="163" class="ac">one decoder block</text>
+      <text x="407" y="178" class="ac">× L = 36</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 2.</b> One decoder block, stacked 36 times. Attention is the <em>only</em> place where information moves between token positions; everything else acts row by row.</figcaption>
+  </figure>
+  <p class="note">Draft — figure is in place; prose to come.</p>
+
+  <h2 id="attention"><span class="num">3</span>Attention, one head at a time</h2>
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 470 220" width="470" role="img" aria-label="A 7 by 7 causal attention matrix: the lower triangle is filled, the upper triangle masked out.">
+      <rect x="56" y="24" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.60"/>
+      <rect x="56" y="24" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="82" y="24" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M82 24 l26 26"/>
+      <rect x="82" y="24" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="108" y="24" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M108 24 l26 26"/>
+      <rect x="108" y="24" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="134" y="24" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M134 24 l26 26"/>
+      <rect x="134" y="24" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="160" y="24" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M160 24 l26 26"/>
+      <rect x="160" y="24" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="186" y="24" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M186 24 l26 26"/>
+      <rect x="186" y="24" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="212" y="24" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M212 24 l26 26"/>
+      <rect x="212" y="24" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="56" y="50" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.54"/>
+      <rect x="56" y="50" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="82" y="50" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.60"/>
+      <rect x="82" y="50" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="108" y="50" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M108 50 l26 26"/>
+      <rect x="108" y="50" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="134" y="50" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M134 50 l26 26"/>
+      <rect x="134" y="50" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="160" y="50" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M160 50 l26 26"/>
+      <rect x="160" y="50" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="186" y="50" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M186 50 l26 26"/>
+      <rect x="186" y="50" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="212" y="50" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M212 50 l26 26"/>
+      <rect x="212" y="50" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="56" y="76" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.48"/>
+      <rect x="56" y="76" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="82" y="76" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.54"/>
+      <rect x="82" y="76" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="108" y="76" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.60"/>
+      <rect x="108" y="76" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="134" y="76" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M134 76 l26 26"/>
+      <rect x="134" y="76" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="160" y="76" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M160 76 l26 26"/>
+      <rect x="160" y="76" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="186" y="76" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M186 76 l26 26"/>
+      <rect x="186" y="76" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="212" y="76" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M212 76 l26 26"/>
+      <rect x="212" y="76" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="56" y="102" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.42"/>
+      <rect x="56" y="102" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="82" y="102" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.48"/>
+      <rect x="82" y="102" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="108" y="102" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.54"/>
+      <rect x="108" y="102" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="134" y="102" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.60"/>
+      <rect x="134" y="102" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="160" y="102" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M160 102 l26 26"/>
+      <rect x="160" y="102" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="186" y="102" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M186 102 l26 26"/>
+      <rect x="186" y="102" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="212" y="102" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M212 102 l26 26"/>
+      <rect x="212" y="102" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="56" y="128" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.36"/>
+      <rect x="56" y="128" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="82" y="128" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.42"/>
+      <rect x="82" y="128" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="108" y="128" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.48"/>
+      <rect x="108" y="128" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="134" y="128" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.54"/>
+      <rect x="134" y="128" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="160" y="128" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.60"/>
+      <rect x="160" y="128" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="186" y="128" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M186 128 l26 26"/>
+      <rect x="186" y="128" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="212" y="128" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M212 128 l26 26"/>
+      <rect x="212" y="128" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="56" y="154" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.30"/>
+      <rect x="56" y="154" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="82" y="154" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.36"/>
+      <rect x="82" y="154" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="108" y="154" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.42"/>
+      <rect x="108" y="154" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="134" y="154" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.48"/>
+      <rect x="134" y="154" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="160" y="154" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.54"/>
+      <rect x="160" y="154" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="186" y="154" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.60"/>
+      <rect x="186" y="154" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="212" y="154" width="26" height="26" fill="var(--fig-soft)"/>
+      <path class="lnf" d="M212 154 l26 26"/>
+      <rect x="212" y="154" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="56" y="180" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.24"/>
+      <rect x="56" y="180" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="82" y="180" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.30"/>
+      <rect x="82" y="180" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="108" y="180" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.36"/>
+      <rect x="108" y="180" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="134" y="180" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.42"/>
+      <rect x="134" y="180" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="160" y="180" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.48"/>
+      <rect x="160" y="180" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="186" y="180" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.54"/>
+      <rect x="186" y="180" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <rect x="212" y="180" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.60"/>
+      <rect x="212" y="180" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
+      <text class="mid sm" x="147.0" y="16">keys k<tspan dy="3" font-size="8">j</tspan><tspan dy="-3">  ⟶</tspan></text>
+      <text class="sm" x="46" y="115.0" transform="rotate(-90 46 115.0)" text-anchor="middle">queries q<tspan dy="3" font-size="8">i</tspan><tspan dy="-3">  ⟶</tspan></text>
+      <rect x="56" y="180" width="182" height="26" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+      <text class="ac xs" x="250" y="182">new token t: one row,</text>
+      <text class="ac xs" x="250" y="194">reads <tspan font-style="italic">all</tspan> previous</text>
+      <text class="ac xs" x="250" y="206">k<tspan dy="3" font-size="7">j</tspan><tspan dy="-3">, v</tspan><tspan dy="3" font-size="7">j</tspan></text>
+      <text class="xs" x="250" y="60">hatched = masked out</text>
+      <text class="xs" x="250" y="72">(the future)</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 3.</b> The causal attention matrix. Because the upper triangle is masked, token j’s k and v are <em>never</em> affected by anything that comes after it — so once computed they are valid forever. That is the licence to cache them.</figcaption>
+  </figure>
+  <p class="note">Draft — figure is in place; prose to come.</p>
+
+  <h2 id="mha"><span class="num">4</span>Multi-head attention</h2>
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 640 300" width="640" role="img" aria-label="Multi-head attention: the input splits into 32 heads, which concatenate and pass through W_O.">
+      <defs><marker id="f4a" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
+      <rect class="sb" x="60" y="10" width="520" height="26" rx="3"/>
+      <text class="mid" x="320" y="27">X ∈ ℝ<tspan dy="-4" font-size="8">T × 4096</tspan></text>
+      <rect class="st" x="60" y="70" width="100" height="88" rx="3"/>
+      <text class="mid" x="110" y="90"><tspan class="qt">Q₁</tspan> <tspan class="kt">K₁</tspan> <tspan class="vt">V₁</tspan></text>
+      <text class="mid xs" x="110" y="104">each T × 128</text>
+      <text class="mid sm" x="110" y="123">softmax</text>
+      <text class="mid sm" x="110" y="136">· V</text>
+      <text class="mid xs" x="110" y="151">→ H₁</text>
+      <path class="ln" d="M110 36 V68" marker-end="url(#f4a)"/>
+      <path class="ln" d="M110 158 V188" marker-end="url(#f4a)"/>
+      <rect class="st" x="190" y="70" width="100" height="88" rx="3"/>
+      <text class="mid" x="240" y="90"><tspan class="qt">Q₂</tspan> <tspan class="kt">K₂</tspan> <tspan class="vt">V₂</tspan></text>
+      <text class="mid xs" x="240" y="104">each T × 128</text>
+      <text class="mid sm" x="240" y="123">softmax</text>
+      <text class="mid sm" x="240" y="136">· V</text>
+      <text class="mid xs" x="240" y="151">→ H₂</text>
+      <path class="ln" d="M240 36 V68" marker-end="url(#f4a)"/>
+      <path class="ln" d="M240 158 V188" marker-end="url(#f4a)"/>
+      <rect class="st" x="320" y="70" width="100" height="88" rx="3"/>
+      <text class="mid" x="370" y="120" font-size="15">⋯</text>
+      <path class="ln" d="M370 36 V68" marker-end="url(#f4a)"/>
+      <path class="ln" d="M370 158 V188" marker-end="url(#f4a)"/>
+      <rect class="st" x="450" y="70" width="100" height="88" rx="3"/>
+      <text class="mid" x="500" y="90"><tspan class="qt">Q₃₂</tspan> <tspan class="kt">K₃₂</tspan> <tspan class="vt">V₃₂</tspan></text>
+      <text class="mid xs" x="500" y="104">each T × 128</text>
+      <text class="mid sm" x="500" y="123">softmax</text>
+      <text class="mid sm" x="500" y="136">· V</text>
+      <text class="mid xs" x="500" y="151">→ H₃₂</text>
+      <path class="ln" d="M500 36 V68" marker-end="url(#f4a)"/>
+      <path class="ln" d="M500 158 V188" marker-end="url(#f4a)"/>
+      <rect class="sb" x="60" y="190" width="520" height="26" rx="3"/>
+      <text class="mid" x="320" y="207">[H₁ ‖ ⋯ ‖ H₃₂] ∈ ℝ<tspan dy="-4" font-size="8">T × (32 · 128 = 4096)</tspan></text>
+      <path class="ln" d="M320 216 V230" marker-end="url(#f4a)"/>
+      <rect class="ab" x="60" y="232" width="520" height="26" rx="3"/>
+      <text class="mid" x="320" y="249">· W<tspan dy="3" font-size="8">O</tspan><tspan dy="-3"> ∈ ℝ</tspan><tspan dy="-4" font-size="8">4096 × 4096</tspan></text>
+      <path class="ln" d="M320 258 V272" marker-end="url(#f4a)"/>
+      <text class="mid sm" x="320" y="288">MHA(X) ∈ ℝ<tspan dy="-4" font-size="8">T × 4096</tspan></text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 4.</b> Multi-head attention in Qwen3-8B: 32 heads, each attending on a 128-dimensional slice, concatenated back to 4096 and mixed by W<sub>O</sub>. For clarity this draws full MHA; §5 shows how K and V are actually shared across heads.</figcaption>
+  </figure>
+  <p class="note">Draft — figure is in place; prose to come.</p>
+
+  <h2 id="gqa"><span class="num">5</span>MHA → MQA → GQA</h2>
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 660 175" width="660" role="img" aria-label="Three panels comparing MHA, GQA and MQA: eight query heads mapped onto eight, two, then one key-value head.">
+      <text class="mid" x="107" y="16">MHA  (n<tspan dy="3" font-size="8">kv</tspan><tspan dy="-3"> = n</tspan><tspan dy="3" font-size="8">q</tspan><tspan dy="-3">)</tspan></text>
+      <text class="mid xs qt" x="107" y="34">8 query heads</text>
+      <rect x="30" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="50" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="70" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="90" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="110" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="130" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="150" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="170" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="30" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="50" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="70" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="90" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="110" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="130" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="150" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="170" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <path class="lnf" d="M37 54 L37 106"/>
+      <path class="lnf" d="M57 54 L57 106"/>
+      <path class="lnf" d="M77 54 L77 106"/>
+      <path class="lnf" d="M97 54 L97 106"/>
+      <path class="lnf" d="M117 54 L117 106"/>
+      <path class="lnf" d="M137 54 L137 106"/>
+      <path class="lnf" d="M157 54 L157 106"/>
+      <path class="lnf" d="M177 54 L177 106"/>
+      <text class="mid xs kt" x="107" y="136">8 K/V heads</text>
+      <text class="mid xs ac" x="107" y="156">KV cache: 590 KB/token</text>
+      <text class="mid" x="322" y="16">GQA  (Qwen3: n<tspan dy="3" font-size="8">q</tspan><tspan dy="-3">/n</tspan><tspan dy="3" font-size="8">kv</tspan><tspan dy="-3"> = 4)</tspan></text>
+      <text class="mid xs qt" x="322" y="34">8 query heads</text>
+      <rect x="245" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="265" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="285" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="305" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="325" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="345" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="365" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="385" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="275" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="355" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <path class="lnf" d="M252 54 L282 106"/>
+      <path class="lnf" d="M272 54 L282 106"/>
+      <path class="lnf" d="M292 54 L282 106"/>
+      <path class="lnf" d="M312 54 L282 106"/>
+      <path class="lnf" d="M332 54 L362 106"/>
+      <path class="lnf" d="M352 54 L362 106"/>
+      <path class="lnf" d="M372 54 L362 106"/>
+      <path class="lnf" d="M392 54 L362 106"/>
+      <text class="mid xs kt" x="322" y="136">2 K/V heads</text>
+      <text class="mid xs ac" x="322" y="156">KV cache: 147 KB/token</text>
+      <text class="mid" x="537" y="16">MQA  (n<tspan dy="3" font-size="8">kv</tspan><tspan dy="-3"> = 1)</tspan></text>
+      <text class="mid xs qt" x="537" y="34">8 query heads</text>
+      <rect x="460" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="480" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="500" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="520" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="540" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="560" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="580" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="600" y="40" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="530" y="106" width="14" height="14" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <path class="lnf" d="M467 54 L537 106"/>
+      <path class="lnf" d="M487 54 L537 106"/>
+      <path class="lnf" d="M507 54 L537 106"/>
+      <path class="lnf" d="M527 54 L537 106"/>
+      <path class="lnf" d="M547 54 L537 106"/>
+      <path class="lnf" d="M567 54 L537 106"/>
+      <path class="lnf" d="M587 54 L537 106"/>
+      <path class="lnf" d="M607 54 L537 106"/>
+      <text class="mid xs kt" x="537" y="136">1 K/V head</text>
+      <text class="mid xs ac" x="537" y="156">KV cache: 18 KB/token</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 5.</b> Sharing keys and values across query heads. Query heads (blue) stay at 32 in Qwen3-8B — drawn as 8 here for space — while the number of K/V heads (green) shrinks. Cache figures are the real Qwen3-8B numbers at BF16.</figcaption>
+  </figure>
+  <p class="note">Draft — figure is in place; prose to come.</p>
+
+  <h2 id="phases"><span class="num">6</span>The two phases: prefill and decode</h2>
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 660 238" width="660" role="img" aria-label="Prefill processes many tokens per weight load; decode processes one token and re-streams all weights.">
+      <text class="ac bd" x="20" y="18">Prefill</text>
+      <rect x="20" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="36" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="52" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="68" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="84" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="100" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="116" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="132" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="148" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="164" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <text class="sm" x="196" y="41">T tokens enter together</text>
+      <rect class="vb" x="20" y="58" width="90" height="15" rx="2"/>
+      <text class="mid xs" x="65" y="69">weights</text>
+      <text class="sm" x="196" y="63">each weight is loaded once and</text>
+      <text class="sm" x="196" y="75">reused by all T tokens</text>
+      <text class="ac" x="20" y="98">matrix × matrix (GEMM)  ⇒  compute-bound</text>
+      <path class="dsh" d="M14 116 H640"/>
+      <text class="ac bd" x="20" y="140">Decode (step n)</text>
+      <rect x="20" y="152" width="13" height="13" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
+      <text class="sm" x="42" y="163">1 new token</text>
+      <rect x="150" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="166" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="182" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="198" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="214" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="230" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="246" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="262" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="278" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="294" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <text class="sm" x="320" y="163">+ n cached K, V rows (read every step)</text>
+      <rect class="vb" x="20" y="182" width="90" height="15" rx="2"/>
+      <text class="mid xs" x="65" y="193">weights</text>
+      <text class="sm" x="196" y="193"><tspan class="bd" fill="currentColor">all 16.4 GB</tspan> streamed again — for one token</text>
+      <text class="ac" x="20" y="220">matrix × vector (GEMV)  ⇒  memory-bound</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 6.</b> Same model, two shapes. Prefill hands the hardware a wide block of work per byte of weight; decode hands it one row.</figcaption>
+  </figure>
+  <p class="note">Draft — figure is in place; prose to come.</p>
+
+  <h2 id="kv"><span class="num">7</span>The KV cache</h2>
+  <p class="note">Draft — prose to come.</p>
+
+  <h2 id="intensity"><span class="num">8</span>Arithmetic intensity and the roofline</h2>
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 700 366" width="700" role="img" aria-label="Log-log roofline plot for H100 and RTX 5090 with decode and prefill operating points marked.">
+      <path class="lnf" style="opacity:.28" d="M101.1 20.0 V320.0"/>
+      <path class="lnf" style="opacity:.28" d="M204.4 20.0 V320.0"/>
+      <path class="lnf" style="opacity:.28" d="M307.8 20.0 V320.0"/>
+      <path class="lnf" style="opacity:.28" d="M411.1 20.0 V320.0"/>
+      <path class="lnf" style="opacity:.28" d="M514.4 20.0 V320.0"/>
+      <path class="lnf" style="opacity:.28" d="M617.8 20.0 V320.0"/>
+      <path class="lnf" style="opacity:.28" d="M70.0 236.7 H680.0"/>
+      <path class="lnf" style="opacity:.28" d="M70.0 153.4 H680.0"/>
+      <path class="lnf" style="opacity:.28" d="M70.0 70.1 H680.0"/>
+      <path class="ln" d="M70.0 20.0 V320.0 H680.0"/>
+      <text class="mid xs" x="101.1" y="334">1</text>
+      <text class="mid xs" x="204.4" y="334">10</text>
+      <text class="mid xs" x="307.8" y="334">10²</text>
+      <text class="mid xs" x="411.1" y="334">10³</text>
+      <text class="mid xs" x="514.4" y="334">10⁴</text>
+      <text class="mid xs" x="617.8" y="334">10⁵</text>
+      <text class="xs end" x="63" y="323.5">1</text>
+      <text class="xs end" x="63" y="240.2">10</text>
+      <text class="xs end" x="63" y="156.9">100</text>
+      <text class="xs end" x="63" y="73.6">1000</text>
+      <path fill="none" stroke="var(--accent)" stroke-width="1.6" d="M70.0 301.3 L356.3 70.5 L680.0 70.5"/>
+      <path fill="none" stroke="var(--fig-q)" stroke-width="1.4" stroke-dasharray="5 3" d="M75.0 320.0 L314.9 126.6 L680.0 126.6"/>
+      <circle cx="356.3" cy="70.5" r="3" fill="var(--accent)"/>
+      <text class="xs ac" x="364.3" y="64.5">ridge I* = 295</text>
+      <circle cx="124.9" cy="257.0" r="3.2" fill="currentColor" stroke="currentColor"/>
+      <text class="xs" text-anchor="start" x="140.9" y="270.0">decode, batch 1</text>
+      <circle cx="253.7" cy="153.4" r="3.2" fill="currentColor" stroke="currentColor"/>
+      <text class="xs" text-anchor="end" x="245.7" y="166.4">batch 32, short ctx</text>
+      <circle cx="181.5" cy="211.6" r="3.2" fill="var(--fig-face)" stroke="currentColor"/>
+      <text class="xs" text-anchor="start" x="197.5" y="224.6">batch 32, 40k ctx</text>
+      <circle cx="597.1" cy="70.5" r="3.2" fill="currentColor" stroke="currentColor"/>
+      <text class="xs" text-anchor="end" x="589.1" y="83.5">prefill</text>
+      <rect x="452" y="250" width="222" height="42" rx="4" fill="var(--fig-face)"
+            stroke="var(--border)"/>
+      <path stroke="var(--accent)" stroke-width="1.6" d="M462 264 H486"/>
+      <text class="xs" x="492" y="267.5">H100 (989 TF/s, 3.35 TB/s)</text>
+      <path stroke="var(--fig-q)" stroke-width="1.4" stroke-dasharray="5 3" d="M462 280 H486"/>
+      <text class="xs" x="492" y="283.5">RTX 5090 (210 TF/s, 1.79 TB/s)</text>
+      <text class="mid sm" x="375" y="352">arithmetic intensity I  (FLOP/byte)</text>
+      <text class="sm" x="18" y="170" transform="rotate(-90 18 170)" text-anchor="middle">attainable TFLOP/s</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 7.</b> The roofline. Sloped section = bandwidth wall, flat section = compute ceiling. Batch-1 decode runs at well under 1% of the H100’s peak FLOP/s; prefill sits on the ceiling. Batching walks decode up the slope — until the KV cache stops fitting.</figcaption>
+  </figure>
+  <p class="note">Draft — figure is in place; prose to come.</p>
+
+  <h2 id="cheat"><span class="num">A</span>Cheat sheet</h2>
+  <p class="note">Draft — prose to come.</p>
+
+  <footer>
+    © 2026 Hyeondo Jang · Last updated 2026.08
+  </footer>
+</main>
+
+<!-- Math: MathJax 3, AMS equation numbering so \eqref works across sections. -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true,
+      processEnvironments: true,
+      tags: 'ams',
+      macros: {
+        mat: ['\\boldsymbol{#1}', 1],
+        vect: ['\\boldsymbol{#1}', 1],
+        R: '\\mathbb{R}',
+        T: '^{\\!\\top}',
+        defeq: '\\mathrel{:=}',
+        dmodel: 'd',
+        dhead: 'd_{h}',
+        dff: 'd_{\\mathrm{ff}}',
+        nq: 'n_{q}',
+        nkv: 'n_{kv}',
+        nlayer: 'L',
+        Lctx: 'T',
+        Vocab: 'V',
+        Bat: 'B',
+        FLOP: '\\mathrm{FLOP}',
+        Bytes: '\\mathrm{B}',
+        softmax: '\\operatorname{softmax}',
+        Attn: '\\operatorname{Attn}',
+        MHA: '\\operatorname{MHA}',
+        FFN: '\\operatorname{FFN}',
+        RMSNorm: '\\operatorname{RMSNorm}',
+        silu: '\\operatorname{silu}'
+      }
+    },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'svg'] },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>
