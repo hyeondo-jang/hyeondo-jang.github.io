@@ -130,14 +130,14 @@
 
   <figure>
     <div class="canvas">
-    <svg viewBox="0 0 560 582" width="560" role="img"
+    <svg viewBox="0 0 400 602" width="400" role="img"
          aria-label="The Qwen3-8B stack: the prompt is tokenized into T ids, embedded to a T by 4096 matrix, passed through 36 identical decoder blocks of RMSNorm, multi-head attention, a residual add, RMSNorm, a SwiGLU feed-forward network and a second residual add, then through an LM head of RMSNorm and the output projection to give T by 151,936 logits.">
       <defs><marker id="ar3" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
 
-      <rect x="118" y="176" width="264" height="238" rx="6" fill="none" stroke="var(--accent)" stroke-width="1"/>
-      <text class="ac sm" x="118" y="169">decoder block  × L = 36</text>
-      <rect x="118" y="430" width="264" height="88" rx="6" fill="none" stroke="var(--accent)" stroke-width="1"/>
-      <text class="ac sm" x="118" y="423">LM head</text>
+      <rect x="118" y="176" width="264" height="246" rx="6" fill="none" stroke="var(--accent)" stroke-width="1"/>
+      <text class="ac sm end" x="373" y="413">decoder block  × L = 36</text>
+      <rect x="118" y="440" width="264" height="98" rx="6" fill="none" stroke="var(--accent)" stroke-width="1"/>
+      <text class="ac sm end" x="373" y="529">LM head</text>
 
       <rect class="st" x="150" y="14" width="200" height="30" rx="3"/>
       <text class="mid mo" x="250" y="33">“What is the capital of France?”</text>
@@ -145,18 +145,18 @@
       <rect class="sb" x="150" y="68" width="200" height="24" rx="3"/>
       <text class="mid sm" x="250" y="84">tokenizer</text>
       <path class="ln" d="M250 92 V114" marker-end="url(#ar3)"/>
-      <text class="xs" x="394" y="104">(T,)</text>
+      <text class="xs" x="259" y="106">(T,)</text>
       <rect class="sb" x="150" y="116" width="200" height="30" rx="3"/>
       <text class="mid" x="250" y="135">embedding table <tspan class="bd">E</tspan></text>
       <path class="ln" d="M250 146 V186" marker-end="url(#ar3)"/>
-      <text class="xs" x="394" y="162">(T, 4096)</text>
+      <text class="xs" x="259" y="169">(T, 4096)</text>
       <rect class="sb" x="150" y="188" width="200" height="20" rx="3"/>
       <text class="mid sm" x="250" y="202">RMSNorm</text>
       <path class="ln" d="M250 208 V220" marker-end="url(#ar3)"/>
       <rect class="qb" x="150" y="222" width="200" height="30" rx="3"/>
       <text class="mid" x="250" y="241">Multi-Head Attention</text>
       <path class="ln" d="M250 252 V269" marker-end="url(#ar3)"/>
-      <text class="xs" x="394" y="264">(T, 4096)</text>
+      <text class="xs" x="259" y="263">(T, 4096)</text>
       <circle class="st" cx="250" cy="280" r="9"/>
       <text class="mid" x="250" y="284">+</text>
       <path class="ln" d="M250 289 V300" marker-end="url(#ar3)"/>
@@ -166,19 +166,19 @@
       <rect class="vb" x="150" y="336" width="200" height="30" rx="3"/>
       <text class="mid" x="250" y="355">Feed-Forward (SwiGLU)</text>
       <path class="ln" d="M250 366 V383" marker-end="url(#ar3)"/>
-      <text class="xs" x="394" y="378">(T, 4096)</text>
+      <text class="xs" x="259" y="377">(T, 4096)</text>
       <circle class="st" cx="250" cy="394" r="9"/>
       <text class="mid" x="250" y="398">+</text>
-      <path class="ln" d="M250 403 V440" marker-end="url(#ar3)"/>
-      <rect class="sb" x="150" y="442" width="200" height="20" rx="3"/>
-      <text class="mid sm" x="250" y="456">RMSNorm</text>
-      <path class="ln" d="M250 462 V474" marker-end="url(#ar3)"/>
-      <rect class="st" x="150" y="476" width="200" height="30" rx="3"/>
-      <text class="mid" x="250" y="495">W<tspan dy="3" font-size="8">lm</tspan></text>
-      <path class="ln" d="M250 506 V536" marker-end="url(#ar3)"/>
-      <rect class="ab" x="150" y="538" width="200" height="30" rx="3"/>
-      <text class="mid" x="250" y="557">logits</text>
-      <text class="xs" x="394" y="556">(T, 151,936)</text>
+      <path class="ln" d="M250 403 V450" marker-end="url(#ar3)"/>
+      <rect class="sb" x="150" y="452" width="200" height="20" rx="3"/>
+      <text class="mid sm" x="250" y="466">RMSNorm</text>
+      <path class="ln" d="M250 472 V484" marker-end="url(#ar3)"/>
+      <rect class="st" x="150" y="486" width="200" height="30" rx="3"/>
+      <text class="mid" x="250" y="505">W<tspan dy="3" font-size="8">lm</tspan></text>
+      <path class="ln" d="M250 516 V556" marker-end="url(#ar3)"/>
+      <text class="xs" x="259" y="550">(T, 151,936)</text>
+      <rect class="ab" x="150" y="558" width="200" height="30" rx="3"/>
+      <text class="mid" x="250" y="577">logits</text>
 
       <path class="ln" d="M250 182 H130 V280 H239" marker-end="url(#ar3)"/>
       <path class="ln" d="M250 294 H138 V394 H239" marker-end="url(#ar3)"/>

@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How GPUs work, with the B200 — Hyeondo Jang</title>
+<meta name="description" content="What a datacenter GPU is actually made of, using the NVIDIA B200 as the running example: the die, the SM and its subpartitions, the register / L1 / L2 / HBM hierarchy, and why bandwidth — not compute — is what an LLM runs into.">
+<meta name="author" content="Hyeondo Jang">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjMGU3YTk1Ii8+PHRleHQgeD0iNTAiIHk9IjUwIiBkeT0iLjM0ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJ1aS1tb25vc3BhY2UsU0ZNb25vLVJlZ3VsYXIsTWVubG8sbW9ub3NwYWNlIiBmb250LXNpemU9IjQ0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjZmZmZmZmIj5ISjwvdGV4dD48L3N2Zz4=">
+<!-- Open Graph -->
+<meta property="og:title" content="How GPUs work, with the B200">
+<meta property="og:description" content="What a datacenter GPU is made of, and why bandwidth is the wall an LLM hits.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://hyeondo-jang.github.io/blog/how-gpus-work.html">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main class="subpage post">
+  <div class="topbar">
+    <a class="backlink" href="../blog.html">← Blog</a>
+    <button class="theme" id="themeBtn" aria-label="Toggle dark mode">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>
+      <span id="themeLbl">Theme</span>
+    </button>
+  </div>
+
+  <h1>How GPUs work, with the B200</h1>
+  <p class="byline">2026.08.20 · Hyeondo Jang</p>
+
+  <p class="lede">A GPU has two budgets — how fast it can compute, and how fast it can be fed.
+    This post is about the second one. We walk down the B200 from the die to the SM to the memory
+    hierarchy, and end at the one ratio that decides how fast an LLM can decode.</p>
+
+  <div class="toc-box">
+    <p>Contents</p>
+    <ol>
+      <li><span class="n">1</span><a href="#die">The chip: one package, two dies</a></li>
+      <li><span class="n">2</span><a href="#sm">Inside one SM</a></li>
+      <li><span class="n">3</span><a href="#hierarchy">The memory hierarchy</a></li>
+      <li><span class="n">4</span><a href="#path">The path a byte takes</a></li>
+      <li><span class="n">5</span><a href="#reuse">Why a bigger cache would not help</a></li>
+      <li><span class="n">6</span><a href="#ridge">The ratio: 562 FLOP per byte</a></li>
+      <li><span class="n">A</span><a href="#cheat">Cheat sheet</a></li>
+    </ol>
+  </div>
+
+  <h2 id="die"><span class="num">1</span>The chip: one package, two dies</h2>
+
+  <!-- TODO(with author): the package — 2 reticle-limited dies on one substrate, 10 TB/s die-to-die
+       link presented to software as a single GPU; 8 HBM3E stacks around the edge; the HBM
+       controllers sit at the die boundary. Optionally a labelled die-shot figure. -->
+
+  <h2 id="sm"><span class="num">2</span>Inside one SM</h2>
+
+  <!-- TODO(with author): SM = the unit that gets replicated 160 times. 4 subpartitions, each with
+       its own warp scheduler, 32 FP32 lanes, 1 tensor core, 64 KB register file. Warps of 32
+       threads; the scheduler hides latency by switching warps rather than by caching. This is the
+       "why GPUs tolerate latency but not low bandwidth" point. -->
+
+  <h2 id="hierarchy"><span class="num">3</span>The memory hierarchy</h2>
+
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 700 410" width="700" role="img"
+         aria-label="The B200 memory hierarchy. One SM, replicated 160 times, holds four subpartitions each with a warp scheduler, 32 FP32 cores, one tensor core and a 64 KB register file; the four share one 256 KB block of L1 and shared memory at over 100 TB per second. Below the SM sits 126 MB of L2 on the compute die, reached at roughly 12 TB per second, and below that 288 GB of HBM3E reached at 8 TB per second through the HBM controllers. On-chip SRAM totals about 208 MB, so a 16.4 GB model only fits in the bottom row.">
+      <defs>
+        <marker id="gh" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7"
+                orient="auto-start-reverse">
+          <path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/>
+        </marker>
+      </defs>
+
+      <!-- the SM boundary -->
+      <rect x="14" y="14" width="670" height="214" rx="7" fill="none" stroke="var(--accent)"
+            stroke-width="1" stroke-dasharray="5 4"/>
+      <text class="ac bd" x="32" y="36">One SM  —  × 160 on the chip</text>
+
+      <!-- four subpartitions -->
+      <rect class="qb" x="32" y="48" width="148" height="98" rx="4"/>
+      <text class="mid bd qt" x="106" y="66">subpartition 0</text>
+      <text class="mid xs" x="106" y="86">warp scheduler</text>
+      <text class="mid xs" x="106" y="102">32 FP32 cores</text>
+      <text class="mid xs" x="106" y="118">1 tensor core</text>
+      <text class="mid xs" x="106" y="134">64 KB registers</text>
+
+      <rect class="qb" x="194" y="48" width="148" height="98" rx="4"/>
+      <text class="mid bd qt" x="268" y="66">subpartition 1</text>
+      <text class="mid xs" x="268" y="86">warp scheduler</text>
+      <text class="mid xs" x="268" y="102">32 FP32 cores</text>
+      <text class="mid xs" x="268" y="118">1 tensor core</text>
+      <text class="mid xs" x="268" y="134">64 KB registers</text>
+
+      <rect class="qb" x="356" y="48" width="148" height="98" rx="4"/>
+      <text class="mid bd qt" x="430" y="66">subpartition 2</text>
+      <text class="mid xs" x="430" y="86">warp scheduler</text>
+      <text class="mid xs" x="430" y="102">32 FP32 cores</text>
+      <text class="mid xs" x="430" y="118">1 tensor core</text>
+      <text class="mid xs" x="430" y="134">64 KB registers</text>
+
+      <rect class="qb" x="518" y="48" width="148" height="98" rx="4"/>
+      <text class="mid bd qt" x="592" y="66">subpartition 3</text>
+      <text class="mid xs" x="592" y="86">warp scheduler</text>
+      <text class="mid xs" x="592" y="102">32 FP32 cores</text>
+      <text class="mid xs" x="592" y="118">1 tensor core</text>
+      <text class="mid xs" x="592" y="134">64 KB registers</text>
+
+      <!-- subpartition to L1 -->
+      <path class="ln" d="M106 150 V174" marker-start="url(#gh)" marker-end="url(#gh)"/>
+      <path class="ln" d="M268 150 V174" marker-start="url(#gh)" marker-end="url(#gh)"/>
+      <path class="ln" d="M430 150 V174" marker-start="url(#gh)" marker-end="url(#gh)"/>
+      <path class="ln" d="M592 150 V174" marker-start="url(#gh)" marker-end="url(#gh)"/>
+      <text class="bd" x="118" y="166">100+ TB/s</text>
+
+      <!-- L1 / shared memory -->
+      <rect class="ab" x="32" y="176" width="634" height="40" rx="4"/>
+      <text class="mid bd" x="349" y="193">L1 + shared memory  —  256 KB, SRAM</text>
+      <text class="mid xs" x="349" y="208">one block per SM, split between the two per kernel  ·  41 MB across the chip</text>
+
+      <!-- SM to L2 -->
+      <path class="ln" d="M349 230 V254" marker-start="url(#gh)" marker-end="url(#gh)"/>
+      <text class="bd" x="361" y="246">≈ 12 TB/s</text>
+
+      <!-- L2 -->
+      <rect class="kb" x="32" y="256" width="634" height="40" rx="4"/>
+      <text class="mid bd" x="349" y="273">L2  —  126 MB, SRAM</text>
+      <text class="mid xs" x="349" y="288">outside every SM, shared by all 160, still on the compute die</text>
+
+      <!-- L2 to HBM -->
+      <path class="ln" d="M349 310 V334" marker-start="url(#gh)" marker-end="url(#gh)"/>
+      <text class="bd" x="361" y="326">8 TB/s, through the HBM controllers</text>
+
+      <!-- HBM -->
+      <rect class="vb" x="32" y="336" width="634" height="40" rx="4"/>
+      <text class="mid bd" x="349" y="353">HBM3E  —  288 GB, DRAM</text>
+      <text class="mid xs" x="349" y="368">stacked dies beside the compute die  ·  this is where the model lives</text>
+
+      <text class="mid bd" x="349" y="396">On-chip SRAM is 208 MB in total. Qwen3-8B is 16.4 GB, so it only fits in the bottom row.</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 1.</b> The B200 memory hierarchy, drawn to make one point: every level
+      fast enough to feed the tensor cores is far too small to hold a model, and the only level
+      large enough is the slowest one.</figcaption>
+  </figure>
+
+  <p>Four numbers describe the whole hierarchy, and they are the only four worth memorising.
+    Registers and L1 are <em>per SM</em>, so their chip-wide totals come from multiplying by 160:</p>
+
+  <div class="tablewrap">
+  <table>
+    <thead>
+      <tr>
+        <th class="flow">Level</th>
+        <th class="flow">Where it sits</th>
+        <th class="num">Per SM</th>
+        <th class="num">Whole chip</th>
+        <th class="num">Bandwidth</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Registers</td>
+        <td class="note">inside each subpartition</td>
+        <td class="num">256 KB</td>
+        <td class="num">41 MB</td>
+        <td class="num">100+ TB/s</td>
+      </tr>
+      <tr>
+        <td>L1 + shared</td>
+        <td class="note">one block per SM</td>
+        <td class="num">256 KB</td>
+        <td class="num">41 MB</td>
+        <td class="num">tens of TB/s</td>
+      </tr>
+      <tr>
+        <td>L2</td>
+        <td class="note">on the compute die, shared</td>
+        <td class="num">—</td>
+        <td class="num">126 MB</td>
+        <td class="num">≈ 12 TB/s</td>
+      </tr>
+      <tr class="total">
+        <td>HBM3E</td>
+        <td class="note">stacked beside the die</td>
+        <td class="num">—</td>
+        <td class="num">288 GB</td>
+        <td class="num">8 TB/s</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Read the last two columns together and the figure's shape falls out. Capacity climbs by a
+    factor of 2000 in a single step at the bottom — 126 MB of L2, then 288 GB of HBM — while
+    bandwidth falls the whole way down. There is no level that is both fast and large, and the
+    jump happens in the wrong place: exactly where a model has to live.</p>
+
+  <p>How badly it lands is worth stating in units of a real model. Qwen3-8B in BF16 is 16.4 GB,
+    which is about <strong>80× all on-chip SRAM combined</strong>. L2 holds 0.77% of it. And it is
+    not as though a well-written kernel could stage the model layer by layer: one Qwen3-8B decoder
+    block is 193M parameters, or 386 MB in BF16 — already three times what L2 can hold. Not one
+    layer fits, let alone 36.</p>
+
+  <p>So there is no choice to make about where the weights live. They live in HBM, and every
+    forward pass has to pull them up through the bottom arrow of the figure.</p>
+
+  <div class="keybox">
+    <span class="t">The one asymmetry</span>
+    <p>Per generation, compute grows roughly 4× (2× from the architecture, 2× from a narrower
+      number format), bandwidth roughly 2×, and capacity by less than 1.4×. The gap the figure
+      shows is not a flaw in this particular chip — it widens with every generation.</p>
+  </div>
+
+  <h2 id="path"><span class="num">4</span>The path a byte takes</h2>
+
+  <!-- TODO(with author): what is and is not skippable. HBM → L2 → registers is legal (shared
+       memory skipped — this is what decode's GEMV does); HBM → L2 → shared memory via TMA is what
+       prefill's tiles do; HBM → shared memory and HBM → registers, skipping L2, do not exist,
+       because the HBM controllers only attach to L2. Cache hints (ld.global.cs, access policy
+       windows) control *residency*, not the path. -->
+
+  <h2 id="reuse"><span class="num">5</span>Why a bigger cache would not help</h2>
+
+  <!-- TODO(with author): L2 sits on the path but earns nothing during decode — the weight matrix
+       is split across 160 SMs, each SM reads different rows, and every byte is read once per token
+       and dropped. Hit rate ≈ 0. Hence: this is a reuse problem, not a cache problem — which is
+       what splits the fixes into batching (raise reuse) and fewer bytes (quantize, MLA, sparsity). -->
+
+  <h2 id="ridge"><span class="num">6</span>The ratio: 562 FLOP per byte</h2>
+
+  <!-- TODO(with author): pi / beta = 4500 TF/s / 8 TB/s = 562. State the roofline, note that the
+       serial path means the slowest link sets the rate so the upper arrows drop out of the
+       calculation, then hand off to the LLM post: 22 GB per decode step / 8 TB/s = 2.75 ms
+       => ~364 tok/s ceiling at batch 1. -->
+
+  <h2 id="cheat"><span class="num">A</span>Cheat sheet</h2>
+
+  <footer>
+    © 2026 Hyeondo Jang · Last updated 2026.08
+  </footer>
+</main>
+
+<!-- Math: MathJax 3, AMS equation numbering so \eqref works across sections. -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true,
+      processEnvironments: true,
+      tags: 'ams',
+      macros: {
+        mat: ['\\boldsymbol{#1}', 1],
+        vect: ['\\boldsymbol{#1}', 1],
+        R: '\\mathbb{R}',
+        T: '^{\\!\\top}',
+        defeq: '\\mathrel{:=}',
+        FLOP: '\\mathrm{FLOP}',
+        Bytes: '\\mathrm{B}',
+        peak: '\\pi',
+        bw: '\\beta',
+        AI: 'I',
+        ridge: 'I^{\\star}',
+        dmodel: 'd',
+        nlayer: 'L',
+        Lctx: 'T',
+        Bat: 'B'
+      }
+    },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'svg'] },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script src="../assets/site.js"></script>
+</body>
+</html>
