@@ -48,10 +48,65 @@
 
   <h2 id="phases"><span class="num">1</span>Prefill and decode: what runs when you send a prompt</h2>
 
-  <p>Inference runs in two phases. <strong>Prefill</strong> is the phase that processes the
-    prompt; <strong>decode</strong> is the phase that generates tokens one at a time.</p>
+  <p>Inference runs in two phases. A question comes in, and processing it is
+    <strong>prefill</strong>. Generating the answer’s tokens, one at a time, is
+    <strong>decode</strong>.</p>
 
   <p class="note">Draft — continues here.</p>
+
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 700 175" width="700" role="img"
+         aria-label="A question enters prefill, which processes the whole prompt in one pass; decode then emits tokens one at a time, looping.">
+      <defs><marker id="ov1" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker>
+      <marker id="ov2" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--accent)"/></marker></defs>
+
+      <rect class="st" x="12" y="77" width="116" height="46" rx="3"/>
+      <text class="mid" x="70" y="96">“What is the</text>
+      <text class="mid" x="70" y="112">capital of France?”</text>
+      <text class="mid xs" x="70" y="138">the question</text>
+      <path class="ln" d="M128 100 H164" marker-end="url(#ov1)"/>
+
+      <rect class="st" x="170" y="44" width="200" height="112" rx="5"/>
+      <text class="mid ac bd" x="270" y="36">PREFILL</text>
+      <rect x="193" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="213" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="233" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="253" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="273" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="293" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="313" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="333" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <path class="lnf" d="M193 96 V91 M193 96 H347 M347 96 V91"/>
+      <text class="mid sm" x="270" y="116">the whole prompt at once</text>
+      <text class="mid xs" x="270" y="132">one forward pass</text>
+      <path class="ln" d="M370 100 H406" marker-end="url(#ov1)"/>
+
+      <rect class="st" x="412" y="44" width="276" height="112" rx="5"/>
+      <text class="mid ac bd" x="550" y="36">DECODE</text>
+      <rect x="444" y="70" width="14" height="14" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
+      <text class="mid xs" x="451" y="65">1</text>
+      <path class="ln" d="M460 77 H498" marker-end="url(#ov1)"/>
+      <rect x="500" y="70" width="14" height="14" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
+      <text class="mid xs" x="507" y="65">2</text>
+      <path class="ln" d="M516 77 H554" marker-end="url(#ov1)"/>
+      <rect x="556" y="70" width="14" height="14" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
+      <text class="mid xs" x="563" y="65">3</text>
+      <path class="ln" d="M572 77 H610" marker-end="url(#ov1)"/>
+      <rect x="612" y="70" width="14" height="14" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
+      <text class="mid xs" x="619" y="65">4</text>
+      <path class="lna" d="M619 88 V106 H451 V90" marker-end="url(#ov2)"/>
+      <text class="mid xs ac" x="535" y="120">append the new token and run again</text>
+      <text class="mid sm" x="550" y="140">one token at a time</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 1.</b> The two phases. <strong>Prefill</strong> takes the
+      question and processes the whole prompt in a single pass. <strong>Decode</strong>
+      then produces the answer one token at a time, appending each new token to the input
+      and running again.</figcaption>
+  </figure>
+
+  <h2 id="stack"><span class="num">2</span>Inside the stack: one decoder block</h2>
 
   <figure>
     <div class="canvas">
@@ -129,7 +184,7 @@
       <text class="sm mid ac" x="374" y="20">append the new token and run again</text>
     </svg>
     </div>
-    <figcaption><b>Figure 1.</b> One pass of a decoder-only LLM, and the loop it sits in. The
+    <figcaption><b>Figure 2.</b> One pass of a decoder-only LLM, and the loop it sits in. The
       residual stream keeps the same shape through all 36 blocks; only the width of the vocabulary
       axis at the end is different.</figcaption>
   </figure>
@@ -158,75 +213,6 @@
     </table>
   </div>
 
-  <figure>
-    <div class="canvas">
-    <svg viewBox="0 0 660 238" width="660" role="img" aria-label="Prefill processes many tokens per weight load; decode processes one token and re-streams all weights.">
-      <text class="ac bd" x="20" y="18">Prefill</text>
-      <rect x="20" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="36" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="52" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="68" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="84" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="100" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="116" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="132" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="148" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="164" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <text class="sm" x="196" y="41">T tokens enter together</text>
-      <rect class="vb" x="20" y="58" width="90" height="15" rx="2"/>
-      <text class="mid xs" x="65" y="69">weights</text>
-      <text class="sm" x="196" y="63">each weight is loaded once and</text>
-      <text class="sm" x="196" y="75">reused by all T tokens</text>
-      <text class="ac" x="20" y="98">matrix × matrix (GEMM)  ⇒  compute-bound</text>
-      <path class="dsh" d="M14 116 H640"/>
-      <text class="ac bd" x="20" y="140">Decode (step n)</text>
-      <rect x="20" y="152" width="13" height="13" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
-      <text class="sm" x="42" y="163">1 new token</text>
-      <rect x="150" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="166" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="182" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="198" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="214" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="230" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="246" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="262" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="278" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="294" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <text class="sm" x="320" y="163">+ n cached K, V rows (read every step)</text>
-      <rect class="vb" x="20" y="182" width="90" height="15" rx="2"/>
-      <text class="mid xs" x="65" y="193">weights</text>
-      <text class="sm" x="196" y="193"><tspan class="bd" fill="currentColor">all 16.4 GB</tspan> streamed again — for one token</text>
-      <text class="ac" x="20" y="220">matrix × vector (GEMV)  ⇒  memory-bound</text>
-    </svg>
-    </div>
-    <figcaption><b>Figure 2.</b> Same model, two shapes. Prefill hands the hardware a wide block of work per byte of weight; decode hands it one row.</figcaption>
-  </figure>
-
-  <h3>Where the cost is</h3>
-
-  <div class="tablewrap">
-    <table>
-      <thead><tr><th>Stage</th><th class="flow">Cost</th><th>Discussed in</th></tr></thead>
-      <tbody>
-        <tr><td>tokenizer, embedding lookup</td>
-            <td class="flow">negligible; a table read</td><td>—</td></tr>
-        <tr><td>attention inside each block</td>
-            <td class="flow">mixes tokens; <span class="m">O</span>(<span class="m">T</span>²) scores; owns the cache</td>
-            <td><a href="#attention">§3</a>–<a href="#gqa">§5</a></td></tr>
-        <tr><td>FFN inside each block</td>
-            <td class="flow">65% of the weights, hence of the bytes</td>
-            <td><a href="#stack">§2</a></td></tr>
-        <tr><td>LM head</td>
-            <td class="flow">one 4096 × 151,936 matmul per step</td>
-            <td><a href="#stack">§2</a></td></tr>
-        <tr><td>the loop itself</td>
-            <td class="flow">repeats all of the above, once per token</td>
-            <td><a href="#kv">§6</a>–<a href="#intensity">§7</a></td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h2 id="stack"><span class="num">2</span>Inside the stack: one decoder block</h2>
   <figure>
     <div class="canvas">
     <svg viewBox="0 0 560 372" width="560" role="img" aria-label="One decoder block: RMSNorm, multi-head attention, residual add, RMSNorm, feed-forward, residual add.">
@@ -552,6 +538,50 @@
   <h2 id="intensity"><span class="num">7</span>Arithmetic intensity and the roofline</h2>
   <figure>
     <div class="canvas">
+    <svg viewBox="0 0 660 238" width="660" role="img" aria-label="Prefill processes many tokens per weight load; decode processes one token and re-streams all weights.">
+      <text class="ac bd" x="20" y="18">Prefill</text>
+      <rect x="20" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="36" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="52" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="68" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="84" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="100" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="116" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="132" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="148" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="164" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <text class="sm" x="196" y="41">T tokens enter together</text>
+      <rect class="vb" x="20" y="58" width="90" height="15" rx="2"/>
+      <text class="mid xs" x="65" y="69">weights</text>
+      <text class="sm" x="196" y="63">each weight is loaded once and</text>
+      <text class="sm" x="196" y="75">reused by all T tokens</text>
+      <text class="ac" x="20" y="98">matrix × matrix (GEMM)  ⇒  compute-bound</text>
+      <path class="dsh" d="M14 116 H640"/>
+      <text class="ac bd" x="20" y="140">Decode (step n)</text>
+      <rect x="20" y="152" width="13" height="13" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
+      <text class="sm" x="42" y="163">1 new token</text>
+      <rect x="150" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="166" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="182" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="198" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="214" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="230" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="246" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="262" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="278" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="294" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <text class="sm" x="320" y="163">+ n cached K, V rows (read every step)</text>
+      <rect class="vb" x="20" y="182" width="90" height="15" rx="2"/>
+      <text class="mid xs" x="65" y="193">weights</text>
+      <text class="sm" x="196" y="193"><tspan class="bd" fill="currentColor">all 16.4 GB</tspan> streamed again — for one token</text>
+      <text class="ac" x="20" y="220">matrix × vector (GEMV)  ⇒  memory-bound</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 7.</b> Same model, two shapes. Prefill hands the hardware a wide block of work per byte of weight; decode hands it one row.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="canvas">
     <svg viewBox="0 0 700 366" width="700" role="img" aria-label="Log-log roofline plot for H100 and RTX 5090 with decode and prefill operating points marked.">
       <path class="lnf" style="opacity:.28" d="M101.1 20.0 V320.0"/>
       <path class="lnf" style="opacity:.28" d="M204.4 20.0 V320.0"/>
@@ -595,7 +625,7 @@
       <text class="sm" x="18" y="170" transform="rotate(-90 18 170)" text-anchor="middle">attainable TFLOP/s</text>
     </svg>
     </div>
-    <figcaption><b>Figure 7.</b> The roofline. Sloped section = bandwidth wall, flat section = compute ceiling. Batch-1 decode runs at well under 1% of the H100’s peak FLOP/s; prefill sits on the ceiling. Batching walks decode up the slope — until the KV cache stops fitting.</figcaption>
+    <figcaption><b>Figure 8.</b> The roofline. Sloped section = bandwidth wall, flat section = compute ceiling. Batch-1 decode runs at well under 1% of the H100’s peak FLOP/s; prefill sits on the ceiling. Batching walks decode up the slope — until the KV cache stops fitting.</figcaption>
   </figure>
   <p class="note">Draft — figure is in place; prose to come.</p>
 
