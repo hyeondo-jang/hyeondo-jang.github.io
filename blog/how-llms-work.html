@@ -202,15 +202,15 @@
       <path class="ln" d="M72 149 H102" marker-end="url(#wa)"/>
       <rect class="sb" x="104" y="135" width="96" height="28" rx="3"/>
       <text class="mid" x="152" y="153">Tokenizer</text>
-      <text class="xs mid" x="215" y="140">(T,)</text>
+      <text class="xs mid" x="215" y="127">(T,)</text>
       <path class="ln" d="M200 149 H230" marker-end="url(#wa)"/>
       <rect class="sb" x="232" y="135" width="100" height="28" rx="3"/>
       <text class="mid" x="282" y="153">Embedding</text>
-      <text class="xs mid" x="347" y="140">(T, 4096)</text>
+      <text class="xs mid" x="347" y="127">(T, 4096)</text>
       <path class="ln" d="M332 149 H362" marker-end="url(#wa)"/>
       <rect class="sb" x="364" y="135" width="96" height="28" rx="3"/>
       <text class="mid" x="412" y="153">RMSNorm</text>
-      <text class="xs mid" x="478" y="140">(T, 4096)</text>
+      <text class="xs mid" x="478" y="127">(T, 4096)</text>
       <rect x="486" y="36" width="660" height="264" rx="6" fill="none" stroke="var(--accent)" stroke-width="1"/>
       <text class="ac sm end" x="1137" y="291">Attn block</text>
       <rect x="502" y="54" width="428" height="198" rx="6" fill="none" stroke="var(--accent)" stroke-width="1"/>
@@ -241,12 +241,12 @@
       <path class="ln" d="M880 190 H906 V149 H936" marker-end="url(#wa)"/>
       <rect class="sb" x="938" y="136" width="72" height="26" rx="3"/>
       <text class="mid" x="974" y="153">Concat</text>
-      <text class="xs mid" x="1026" y="140">(T, 4096)</text>
+      <text class="xs mid" x="1026" y="127">(T, 4096)</text>
       <path class="ln" d="M1010 149 H1042" marker-end="url(#wa)"/>
       <rect class="ab" x="1044" y="136" width="76" height="26" rx="3"/>
       <text class="mid" x="1082" y="153">O<tspan dy="3" font-size="8">proj</tspan></text>
       <path class="ln" d="M1146 149 H1204" marker-end="url(#wa)"/>
-      <text class="xs mid" x="1175" y="140">(T, 4096)</text>
+      <text class="xs mid" x="1175" y="127">(T, 4096)</text>
       <rect x="1206" y="60" width="494" height="190" rx="6" fill="none" stroke="var(--accent)" stroke-width="1"/>
       <text class="ac sm end" x="1691" y="241">FFN block</text>
       <path class="ln" d="M1204 149 H1224 V101 H1238" marker-end="url(#wa)"/>
@@ -267,7 +267,7 @@
       <path class="ln" d="M1501 149 H1532" marker-end="url(#wa)"/>
       <rect class="vb" x="1534" y="136" width="88" height="26" rx="3"/>
       <text class="mid" x="1578" y="153">W<tspan dy="3" font-size="8">down</tspan></text>
-      <text class="xs mid" x="1655" y="140">(T, 4096)</text>
+      <text class="xs mid" x="1655" y="127">(T, 4096)</text>
       <path class="ln" d="M1622 149 H1688" marker-end="url(#wa)"/>
       <path class="ln" d="M1700 149 H1746" marker-end="url(#wa)"/>
     </svg>
@@ -393,51 +393,103 @@
 
   <figure>
     <div class="canvas">
-    <svg viewBox="0 0 744 284" width="744" role="img" aria-label="X is projected to 32 query heads and 8 key/value heads of width 128. Each of the 32 heads, drawn as a stack of overlapping cards, runs scaled dot-product attention on its own query while sharing keys and values with three other heads; the head outputs are concatenated back to 4096 and mixed by the output projection.">
+    <svg viewBox="0 0 756 284" width="756" role="img" aria-label="X is projected to 32 query heads and 8 key/value heads of width 128. Each of the 32 heads, drawn as a stack of overlapping cards, runs scaled dot-product attention on its own query while sharing keys and values with three other heads; the head outputs are concatenated back to 4096 and mixed by the output projection.">
       <defs><marker id="mh" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
-      <rect class="st" x="10" y="142" width="56" height="26" rx="3"/>
-      <text class="mid" x="38" y="159">X</text>
-      <path class="ln" d="M66 155 H130 V53 H132" marker-end="url(#mh)"/>
-      <path class="ln" d="M66 155 H132" marker-end="url(#mh)"/>
-      <path class="ln" d="M66 155 H130 V257 H132" marker-end="url(#mh)"/>
-      <text class="xs mid" x="98" y="146">(T, 4096)</text>
-      <rect class="qb" x="134" y="40" width="70" height="26" rx="3"/>
-      <text class="mid" x="169" y="57">Q<tspan dy="3" font-size="8">proj</tspan></text>
-      <rect class="kb" x="134" y="142" width="70" height="26" rx="3"/>
-      <text class="mid" x="169" y="159">K<tspan dy="3" font-size="8">proj</tspan></text>
-      <rect class="kb" x="134" y="244" width="70" height="26" rx="3"/>
-      <text class="mid" x="169" y="261">V<tspan dy="3" font-size="8">proj</tspan></text>
-      <path class="ln" d="M204 53 H272 V132 H294" marker-end="url(#mh)"/>
-      <text class="xs mid" x="236" y="44">(T, 32 × 128)</text>
-      <path class="ln" d="M204 155 H294" marker-end="url(#mh)"/>
-      <text class="xs mid" x="249" y="146">(T, 8 × 128)</text>
-      <path class="ln" d="M204 257 H272 V178 H294" marker-end="url(#mh)"/>
-      <text class="xs mid" x="236" y="248">(T, 8 × 128)</text>
-      <rect class="qb" x="320" y="86" width="140" height="86" rx="3"/>
-      <text class="mid" x="390" y="133"></text>
-      <rect class="qb" x="312" y="94" width="140" height="86" rx="3"/>
-      <text class="mid" x="382" y="141"></text>
-      <rect class="qb" x="304" y="102" width="140" height="86" rx="3"/>
-      <text class="mid" x="374" y="149"></text>
-      <rect class="qb" x="296" y="110" width="140" height="86" rx="3"/>
-      <text class="mid" x="366" y="157"></text>
-      <text class="mid" x="366" y="142">softmax(Q K<tspan dy="-4" font-size="8">⊤</tspan><tspan dy="4"> / √d</tspan><tspan dy="3" font-size="8">h</tspan><tspan dy="-3">) · V</tspan></text>
-      <text class="xs mid" x="366" y="161">one head  →  (T, 128)</text>
-      <text class="xs mid" x="366" y="178">K, V shared across 4 query heads</text>
-      <text class="xs end" x="458" y="78">× 32 heads</text>
-      <path class="ln" d="M436 190 H462 V155 H484" marker-end="url(#mh)"/>
-      <rect class="sb" x="486" y="142" width="64" height="26" rx="3"/>
-      <text class="mid" x="518" y="159">Concat</text>
-      <path class="ln" d="M550 155 H606" marker-end="url(#mh)"/>
-      <text class="xs mid" x="578" y="146">(T, 4096)</text>
-      <rect class="ab" x="608" y="142" width="70" height="26" rx="3"/>
-      <text class="mid" x="643" y="159">O<tspan dy="3" font-size="8">proj</tspan></text>
-      <path class="ln" d="M678 155 H734" marker-end="url(#mh)"/>
-      <text class="xs mid" x="706" y="146">(T, 4096)</text>
+      <rect class="st" x="10" y="142" width="50" height="26" rx="3"/>
+      <text class="mid" x="35" y="159">X</text>
+      <path class="ln" d="M60 155 H122 V53 H124" marker-end="url(#mh)"/>
+      <path class="ln" d="M60 155 H124" marker-end="url(#mh)"/>
+      <path class="ln" d="M60 155 H122 V257 H124" marker-end="url(#mh)"/>
+      <text class="xs mid" x="91" y="146">(T, 4096)</text>
+      <rect class="qb" x="124" y="40" width="70" height="26" rx="3"/>
+      <text class="mid" x="159" y="57">Q<tspan dy="3" font-size="8">proj</tspan></text>
+      <rect class="kb" x="124" y="142" width="70" height="26" rx="3"/>
+      <text class="mid" x="159" y="159">K<tspan dy="3" font-size="8">proj</tspan></text>
+      <rect class="kb" x="124" y="244" width="70" height="26" rx="3"/>
+      <text class="mid" x="159" y="261">V<tspan dy="3" font-size="8">proj</tspan></text>
+      <path class="ln" d="M194 53 H262 V132 H276" marker-end="url(#mh)"/>
+      <text class="xs mid" x="228" y="44">(T, 32 × 128)</text>
+      <path class="ln" d="M194 155 H276" marker-end="url(#mh)"/>
+      <text class="xs mid" x="235" y="146">(T, 8 × 128)</text>
+      <path class="ln" d="M194 257 H262 V178 H276" marker-end="url(#mh)"/>
+      <text class="xs mid" x="228" y="248">(T, 8 × 128)</text>
+      <rect class="qb" x="302" y="86" width="150" height="86" rx="3"/>
+      <rect class="qb" x="294" y="94" width="150" height="86" rx="3"/>
+      <rect class="qb" x="286" y="102" width="150" height="86" rx="3"/>
+      <rect class="qb" x="278" y="110" width="150" height="86" rx="3"/>
+      <text class="mid" x="353" y="146">softmax(Q K<tspan dy="-4" font-size="8">⊤</tspan><tspan dy="4"> / √d</tspan><tspan dy="3" font-size="8">h</tspan><tspan dy="-3">) · V</tspan></text>
+      <text class="xs mid" x="353" y="166">one head  →  (T, 128)</text>
+      <text class="xs end" x="450" y="78">× 32 heads</text>
+      <text class="xs mid" x="353" y="216">K, V shared by 4 query heads</text>
+      <path class="ln" d="M428 192 H466 V155 H488" marker-end="url(#mh)"/>
+      <rect class="sb" x="490" y="142" width="64" height="26" rx="3"/>
+      <text class="mid" x="522" y="159">Concat</text>
+      <path class="ln" d="M554 155 H618" marker-end="url(#mh)"/>
+      <text class="xs mid" x="586" y="146">(T, 4096)</text>
+      <rect class="ab" x="620" y="142" width="70" height="26" rx="3"/>
+      <text class="mid" x="655" y="159">O<tspan dy="3" font-size="8">proj</tspan></text>
+      <path class="ln" d="M690 155 H746" marker-end="url(#mh)"/>
+      <text class="xs mid" x="718" y="146">(T, 4096)</text>
     </svg>
     </div>
-    <figcaption><b>Figure 6.</b> Multi-head attention, in its grouped-query form.</figcaption>
+    <figcaption><b>Figure 6.</b> Multi-head attention, in its grouped-query form.
+      <a class="zoom" href="#origmha">See the original multi-head attention</a>
+    </figcaption>
   </figure>
+
+  <div class="lightbox" id="origmha">
+    <a class="scrim" href="#prefill" aria-label="Close"></a>
+    <div class="sheet">
+      <header>
+        <h2>Original multi-head attention — every head with its own K and V</h2>
+        <a class="close" href="#prefill">CLOSE ✕</a>
+      </header>
+      <div class="pane">
+      <div class="figwrap">
+    <svg viewBox="0 0 640 300" width="640" role="img" aria-label="Multi-head attention: the input splits into 32 heads, which concatenate and pass through W_O.">
+      <defs><marker id="f4a" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
+      <rect class="sb" x="60" y="10" width="520" height="26" rx="3"/>
+      <text class="mid" x="320" y="27">X ∈ ℝ<tspan dy="-4" font-size="8">T × 4096</tspan></text>
+      <rect class="st" x="60" y="70" width="100" height="88" rx="3"/>
+      <text class="mid" x="110" y="90"><tspan class="qt">Q₁</tspan> <tspan class="kt">K₁</tspan> <tspan class="vt">V₁</tspan></text>
+      <text class="mid xs" x="110" y="104">each T × 128</text>
+      <text class="mid sm" x="110" y="123">softmax</text>
+      <text class="mid sm" x="110" y="136">· V</text>
+      <text class="mid xs" x="110" y="151">→ H₁</text>
+      <path class="ln" d="M110 36 V68" marker-end="url(#f4a)"/>
+      <path class="ln" d="M110 158 V188" marker-end="url(#f4a)"/>
+      <rect class="st" x="190" y="70" width="100" height="88" rx="3"/>
+      <text class="mid" x="240" y="90"><tspan class="qt">Q₂</tspan> <tspan class="kt">K₂</tspan> <tspan class="vt">V₂</tspan></text>
+      <text class="mid xs" x="240" y="104">each T × 128</text>
+      <text class="mid sm" x="240" y="123">softmax</text>
+      <text class="mid sm" x="240" y="136">· V</text>
+      <text class="mid xs" x="240" y="151">→ H₂</text>
+      <path class="ln" d="M240 36 V68" marker-end="url(#f4a)"/>
+      <path class="ln" d="M240 158 V188" marker-end="url(#f4a)"/>
+      <rect class="st" x="320" y="70" width="100" height="88" rx="3"/>
+      <text class="mid" x="370" y="120" font-size="15">⋯</text>
+      <path class="ln" d="M370 36 V68" marker-end="url(#f4a)"/>
+      <path class="ln" d="M370 158 V188" marker-end="url(#f4a)"/>
+      <rect class="st" x="450" y="70" width="100" height="88" rx="3"/>
+      <text class="mid" x="500" y="90"><tspan class="qt">Q₃₂</tspan> <tspan class="kt">K₃₂</tspan> <tspan class="vt">V₃₂</tspan></text>
+      <text class="mid xs" x="500" y="104">each T × 128</text>
+      <text class="mid sm" x="500" y="123">softmax</text>
+      <text class="mid sm" x="500" y="136">· V</text>
+      <text class="mid xs" x="500" y="151">→ H₃₂</text>
+      <path class="ln" d="M500 36 V68" marker-end="url(#f4a)"/>
+      <path class="ln" d="M500 158 V188" marker-end="url(#f4a)"/>
+      <rect class="sb" x="60" y="190" width="520" height="26" rx="3"/>
+      <text class="mid" x="320" y="207">[H₁ ‖ ⋯ ‖ H₃₂] ∈ ℝ<tspan dy="-4" font-size="8">T × (32 · 128 = 4096)</tspan></text>
+      <path class="ln" d="M320 216 V230" marker-end="url(#f4a)"/>
+      <rect class="ab" x="60" y="232" width="520" height="26" rx="3"/>
+      <text class="mid" x="320" y="249">· W<tspan dy="3" font-size="8">O</tspan><tspan dy="-3"> ∈ ℝ</tspan><tspan dy="-4" font-size="8">4096 × 4096</tspan></text>
+      <path class="ln" d="M320 258 V272" marker-end="url(#f4a)"/>
+      <text class="mid sm" x="320" y="288">MHA(X) ∈ ℝ<tspan dy="-4" font-size="8">T × 4096</tspan></text>
+    </svg>
+      </div>
+      </div>
+    </div>
+  </div>
 
   <p>This is the only stage where information moves between token positions. Each of the
     $\nq = 32$ heads projects the same input into a query, a key and a value of width
@@ -473,31 +525,31 @@
 
   <figure>
     <div class="canvas">
-    <svg viewBox="0 0 582 224" width="582" role="img" aria-label="X passes through a gate projection with a SiLU and an up projection, both widening to 12,288; their elementwise product goes through the down projection back to 4096.">
+    <svg viewBox="0 0 582 150" width="582" role="img" aria-label="X passes through a gate projection with a SiLU and an up projection, both widening to 12,288; their elementwise product goes through the down projection back to 4096.">
       <defs><marker id="ff" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
-      <rect class="st" x="10" y="82" width="56" height="26" rx="3"/>
-      <text class="mid" x="38" y="99">X</text>
-      <path class="ln" d="M66 95 H126 V39 H128" marker-end="url(#ff)"/>
-      <path class="ln" d="M66 95 H126 V197 H128" marker-end="url(#ff)"/>
-      <text class="xs mid" x="96" y="86">(T, 4096)</text>
+      <rect class="st" x="10" y="62" width="56" height="26" rx="3"/>
+      <text class="mid" x="38" y="79">X</text>
+      <path class="ln" d="M66 75 H126 V39 H128" marker-end="url(#ff)"/>
+      <path class="ln" d="M66 75 H126 V111 H128" marker-end="url(#ff)"/>
+      <text class="xs mid" x="96" y="66">(T, 4096)</text>
       <rect class="vb" x="130" y="26" width="76" height="26" rx="3"/>
       <text class="mid" x="168" y="43">W<tspan dy="3" font-size="8">gate</tspan></text>
       <path class="ln" d="M206 39 H240" marker-end="url(#ff)"/>
       <rect class="sb" x="242" y="26" width="60" height="26" rx="3"/>
       <text class="mid" x="272" y="43">SiLU</text>
-      <path class="ln" d="M302 39 H380 V84" marker-end="url(#ff)"/>
+      <path class="ln" d="M302 39 H380 V64" marker-end="url(#ff)"/>
       <text class="xs mid" x="341" y="30">(T, 12,288)</text>
-      <rect class="vb" x="130" y="184" width="76" height="26" rx="3"/>
-      <text class="mid" x="168" y="201">W<tspan dy="3" font-size="8">up</tspan></text>
-      <path class="ln" d="M206 197 H380 V106" marker-end="url(#ff)"/>
-      <text class="xs mid" x="293" y="188">(T, 12,288)</text>
-      <circle class="st" cx="380" cy="95" r="11"/>
-      <text class="mid" x="380" y="99">⊙</text>
-      <path class="ln" d="M391 95 H426" marker-end="url(#ff)"/>
-      <rect class="vb" x="428" y="82" width="88" height="26" rx="3"/>
-      <text class="mid" x="472" y="99">W<tspan dy="3" font-size="8">down</tspan></text>
-      <path class="ln" d="M516 95 H572" marker-end="url(#ff)"/>
-      <text class="xs mid" x="544" y="86">(T, 4096)</text>
+      <rect class="vb" x="130" y="98" width="76" height="26" rx="3"/>
+      <text class="mid" x="168" y="115">W<tspan dy="3" font-size="8">up</tspan></text>
+      <path class="ln" d="M206 111 H380 V86" marker-end="url(#ff)"/>
+      <text class="xs mid" x="293" y="102">(T, 12,288)</text>
+      <circle class="st" cx="380" cy="75" r="11"/>
+      <text class="mid" x="380" y="79">⊙</text>
+      <path class="ln" d="M391 75 H426" marker-end="url(#ff)"/>
+      <rect class="vb" x="428" y="62" width="88" height="26" rx="3"/>
+      <text class="mid" x="472" y="79">W<tspan dy="3" font-size="8">down</tspan></text>
+      <path class="ln" d="M516 75 H572" marker-end="url(#ff)"/>
+      <text class="xs mid" x="544" y="66">(T, 4096)</text>
     </svg>
     </div>
     <figcaption><b>Figure 7.</b> The SwiGLU feed-forward network.</figcaption>
@@ -629,7 +681,9 @@
 <script>
   // Escape closes the full-pass overlay; the close link and the scrim do the rest.
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && location.hash === "#fullpass") { location.hash = "stack"; }
+    if (e.key !== "Escape") { return; }
+    if (location.hash === "#fullpass") { location.hash = "stack"; }
+    if (location.hash === "#origmha") { location.hash = "prefill"; }
   });
 </script>
 <script src="../assets/site.js"></script>
