@@ -315,7 +315,7 @@
 
   <figure>
     <div class="canvas">
-    <svg viewBox="0 0 446 78" width="446" role="img" aria-label="Each token id selects one row of the embedding table, giving a T by 4096 matrix.">
+    <svg viewBox="0 0 470 78" width="470" role="img" aria-label="Each token id selects one row of the embedding table, giving a T by 4096 matrix.">
       <defs><marker id="em" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
       <rect class="st" x="10" y="26" width="90" height="36" rx="3"/>
       <text class="mid mo" x="55" y="48">t₁ … t<tspan dy="3" font-size="8">T</tspan></text>
@@ -324,10 +324,10 @@
       <rect class="sb" x="138" y="26" width="170" height="36" rx="3"/>
       <text class="mid" x="223" y="43">embedding table <tspan class="bd">E</tspan></text>
       <text class="mid xs" x="223" y="56">151,936 × 4096</text>
-      <path class="ln" d="M308 44 H344" marker-end="url(#em)"/>
-      <text class="xs mid" x="326" y="35">(T, 4096)</text>
-      <rect class="st" x="346" y="26" width="90" height="36" rx="3"/>
-      <text class="mid" x="391" y="48">X<tspan dy="-4" font-size="8">(0)</tspan></text>
+      <path class="ln" d="M308 44 H368" marker-end="url(#em)"/>
+      <text class="xs mid" x="338" y="35">(T, 4096)</text>
+      <rect class="st" x="370" y="26" width="90" height="36" rx="3"/>
+      <text class="mid" x="415" y="48">X<tspan dy="-4" font-size="8">(0)</tspan></text>
     </svg>
     </div>
     <figcaption><b>Figure 4.</b> The embedding lookup.</figcaption>
@@ -371,8 +371,8 @@
       <rect class="sb" x="158" y="24" width="140" height="80" rx="3"/>
       <text class="mid" x="228" y="60">RMSNorm</text>
       <text class="xs mid" x="228" y="76">each row on its own</text>
-      <text class="xs mid" x="138" y="24">(T, 4096)</text>
-      <text class="xs mid" x="318" y="24">(T, 4096)</text>
+      <text class="xs mid" x="138" y="20">(T, 4096)</text>
+      <text class="xs mid" x="318" y="20">(T, 4096)</text>
     </svg>
     </div>
     <figcaption><b>Figure 5.</b> RMSNorm, applied row by row.</figcaption>
