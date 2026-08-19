@@ -299,17 +299,26 @@
   .post svg .it{font-style:italic}
   .post svg .fnt{fill:var(--faint)}
 
-  /* ---------- Caption-level disclosure (the full-pass figure) ---------- */
-  .post .expand{margin-top:9px}
-  .post .expand>summary{cursor:pointer;color:var(--accent);font-size:.82rem;
-                        list-style:none;display:inline-flex;align-items:center;gap:6px}
-  .post .expand>summary::-webkit-details-marker{display:none}
-  .post .expand>summary::before{content:"▸";font-size:.72em;line-height:1}
-  .post .expand[open]>summary::before{content:"▾"}
-  .post .expand>summary:hover{color:var(--accent-2)}
-  /* This caption hosts a full-width figure, so it opts out of the 70ch measure,
-     and the wide SVG keeps its natural size and scrolls instead of shrinking. */
-  .post figcaption.wide{max-width:none}
-  .post .expand .canvas{margin-top:11px}
-  .post .expand .canvas svg{max-width:none}
-  .post .expand .hint{display:block;margin-top:7px;font-size:.76rem;color:var(--faint)}
+  /* ---------- Full-screen figure overlay, opened from a caption link ---------- */
+  .post .zoom{font-size:.82rem;display:inline-block;margin-top:7px}
+  .post .zoom::after{content:" ↗";font-size:.9em}
+
+  .lightbox{position:fixed;inset:0;z-index:60;display:none;--lbm:clamp(10px,2.4vw,40px)}
+  .lightbox:target{display:block}
+  .lightbox .scrim{position:absolute;inset:0;background:rgba(8,10,12,.62);
+                   border-bottom:none;cursor:zoom-out}
+  /* The sheet hugs the figure rather than filling the viewport: these diagrams are
+     wide and short, so a full-height panel would be mostly empty. */
+  .lightbox .sheet{position:absolute;left:var(--lbm);right:var(--lbm);top:50%;
+                   transform:translateY(-50%);max-height:calc(100% - 2 * var(--lbm));
+                   background:var(--surface);border:1px solid var(--border);border-radius:12px;
+                   display:flex;flex-direction:column;overflow:hidden}
+  .lightbox header{display:flex;align-items:baseline;justify-content:space-between;gap:18px;
+                   padding:15px 20px 12px;border-bottom:1px solid var(--border)}
+  .lightbox h2{margin:0;padding:0;border:none;font-size:.95rem;font-weight:650}
+  .lightbox .close{font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;
+                   color:var(--muted);white-space:nowrap;border-bottom:none}
+  .lightbox .close:hover{color:var(--accent)}
+  .lightbox .pane{flex:1;overflow:auto;padding:20px;display:grid;place-items:center}
+  .lightbox .figwrap svg{display:block;max-width:none;height:auto;
+                         color:var(--text);font-family:var(--sans)}

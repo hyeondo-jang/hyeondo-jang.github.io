@@ -180,10 +180,20 @@
       <path class="ln" d="M250 294 H138 V394 H239" marker-end="url(#ar3)"/>
     </svg>
     </div>
-    <figcaption class="wide"><b>Figure 2.</b> The Qwen3-8B decoder block, stacked 36 times.<details class="expand">
-        <summary>See the whole pass as one figure</summary>
-        <span class="hint">Scroll sideways — the pass is wider than the column.</span>
-    <div class="canvas">
+    <figcaption><b>Figure 2.</b> The Qwen3-8B decoder block, stacked 36 times.
+      <a class="zoom" href="#fullpass">See the whole pass as one figure</a>
+        </figcaption>
+  </figure>
+
+  <div class="lightbox" id="fullpass">
+    <a class="scrim" href="#stack" aria-label="Close"></a>
+    <div class="sheet">
+      <header>
+        <h2>One forward pass, end to end</h2>
+        <a class="close" href="#stack">CLOSE ✕</a>
+      </header>
+      <div class="pane">
+      <div class="figwrap">
     <svg viewBox="0 0 1756 320" width="1756" role="img"
          aria-label="One forward pass end to end: text, tokenizer, embedding, RMSNorm, the attention block with its Q, K and V projections, 32 attention heads sharing keys and values in groups of four, concatenation and the output projection, then the SwiGLU feed-forward block, with the tensor shape at every hand-off.">
       <defs><marker id="wa" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
@@ -262,10 +272,10 @@
       <path class="ln" d="M1622 149 H1688" marker-end="url(#wa)"/>
       <path class="ln" d="M1700 149 H1746" marker-end="url(#wa)"/>
     </svg>
+      </div>
+      </div>
     </div>
-      </details>
-    </figcaption>
-  </figure>
+  </div>
 
   <p>The stack is fixed-width. Every stage inside a decoder block maps a
     $\Lctx \times \dmodel$ matrix to another matrix of the same shape, with
@@ -586,6 +596,12 @@
   };
 </script>
 <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script>
+  // Escape closes the full-pass overlay; the close link and the scrim do the rest.
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && location.hash === "#fullpass") { location.hash = "stack"; }
+  });
+</script>
 <script src="../assets/site.js"></script>
 </body>
 </html>
