@@ -28,37 +28,27 @@
   <h1>How GPUs work, with the B200</h1>
   <p class="byline">2026.08.20 · Hyeondo Jang</p>
 
-  <p class="lede">A GPU has two budgets — how fast it can compute, and how fast it can be fed.
-    This post is about the second one. We walk down the B200 from the die to the SM to the memory
-    hierarchy, and end at the one ratio that decides how fast an LLM can decode.</p>
-
   <div class="toc-box">
     <p>Contents</p>
     <ol>
-      <li><span class="n">1</span><a href="#die">The chip: one package, two dies</a></li>
-      <li><span class="n">2</span><a href="#sm">Inside one SM</a></li>
-      <li><span class="n">3</span><a href="#hierarchy">The memory hierarchy</a></li>
-      <li><span class="n">4</span><a href="#path">The path a byte takes</a></li>
-      <li><span class="n">5</span><a href="#reuse">Why a bigger cache would not help</a></li>
-      <li><span class="n">6</span><a href="#ridge">The ratio: 562 FLOP per byte</a></li>
-      <li><span class="n">A</span><a href="#cheat">Cheat sheet</a></li>
+      <li><span class="n">1</span><a href="#hierarchy">The memory hierarchy</a></li>
+      <li><span class="n">2</span><a href="#regimes">Compute-bound and memory-bound</a></li>
+      <li><span class="n">3</span><a href="#ridge">The roofline</a></li>
     </ol>
   </div>
 
-  <h2 id="die"><span class="num">1</span>The chip: one package, two dies</h2>
+  <h2 id="hierarchy"><span class="num">1</span>The memory hierarchy</h2>
 
-  <!-- TODO(with author): the package — 2 reticle-limited dies on one substrate, 10 TB/s die-to-die
-       link presented to software as a single GPU; 8 HBM3E stacks around the edge; the HBM
-       controllers sit at the die boundary. Optionally a labelled die-shot figure. -->
+  <p>A B200 is 160 copies of one unit, the <strong>streaming multiprocessor</strong>. Figure 1
+    draws one of them and everything underneath it.</p>
 
-  <h2 id="sm"><span class="num">2</span>Inside one SM</h2>
-
-  <!-- TODO(with author): SM = the unit that gets replicated 160 times. 4 subpartitions, each with
-       its own warp scheduler, 32 FP32 lanes, 1 tensor core, 64 KB register file. Warps of 32
-       threads; the scheduler hides latency by switching warps rather than by caching. This is the
-       "why GPUs tolerate latency but not low bandwidth" point. -->
-
-  <h2 id="hierarchy"><span class="num">3</span>The memory hierarchy</h2>
+  <p>Worth settling first what a GPU does <em>not</em> worry about. Each of an SM's four
+    subpartitions holds many <strong>warps</strong> — groups of 32 threads issued together — and
+    its scheduler switches to another warp on any cycle the current one is waiting, so a slow
+    access stalls nothing. Latency is covered by having other work outstanding. Bandwidth cannot
+    be covered that way: if the bytes are not arriving fast enough, more warps ready to run does
+    not help, because they are all waiting on the same pipe. That asymmetry is why the rest of
+    this post looks at one axis only.</p>
 
   <figure>
     <div class="canvas">
@@ -191,7 +181,7 @@
   </div>
 
   <p>Read the last two columns together and the figure's shape falls out. Capacity climbs by a
-    factor of 2000 in a single step at the bottom — 126 MB of L2, then 288 GB of HBM — while
+    factor of 1500 in a single step at the bottom — 126 MB of L2, then 192 GB of HBM — while
     bandwidth falls the whole way down. There is no level that is both fast and large, and the
     jump happens in the wrong place: exactly where a model has to live.</p>
 
@@ -204,99 +194,140 @@
   <p>So there is no choice to make about where the weights live. They live in HBM, and every
     forward pass has to pull them up through the bottom arrow of the figure.</p>
 
-  <div class="keybox">
-    <span class="t">The shape of the problem</span>
-    <p>The hierarchy is the wrong shape for a language model. Every level fast enough to keep the
-      tensor cores busy holds under 1.5% of Qwen3-8B; the only level that holds the whole model is
-      the slowest one — and it is the level every forward pass has to reach.</p>
-  </div>
+  <h2 id="regimes"><span class="num">2</span>Compute-bound and memory-bound</h2>
 
-  <h2 id="path"><span class="num">4</span>The path a byte takes</h2>
+  <p>Weights arrive at the tensor cores at 8 TB/s whatever you are running. What differs is how
+    much arithmetic each arriving byte brings with it — and that alone decides which side is idle.</p>
 
-  <!-- TODO(with author): what is and is not skippable. HBM → L2 → registers is legal (shared
-       memory skipped — this is what decode's GEMV does); HBM → L2 → shared memory via TMA is what
-       prefill's tiles do; HBM → shared memory and HBM → registers, skipping L2, do not exist,
-       because the HBM controllers only attach to L2. Cache hints (ld.global.cs, access policy
-       windows) control *residency*, not the path. -->
+  <figure>
+    <div class="canvas">
+    <svg class="cbmb" viewBox="0 0 700 254" width="700" role="img"
+         aria-label="Two lanes compared. In both, weight tiles travel from HBM to an SM through the same 8 TB per second pipe, arriving at the same rate. In the prefill lane the tensor core is still working when the next tile lands, so its duty cycle is a solid bar: the pipe waits, and the kernel is compute-bound. In the decode lane the core finishes each tile almost instantly and then sits dark until the next one arrives, so its duty cycle is a row of thin ticks: the core waits, and the kernel is memory-bound.">
+      <style>
+        .cbmb .tl{animation:cbmb-flow 1.2s linear infinite;animation-delay:-.2s}
+        .cbmb .tl-b{animation-delay:-.6s}
+        .cbmb .tl-c{animation-delay:-1s}
+        @keyframes cbmb-flow{from{transform:translateX(0)}to{transform:translateX(184px)}}
+        .cbmb .idle{animation:cbmb-blip .4s linear infinite;animation-delay:-.2s}
+        @keyframes cbmb-blip{0%,9.99%{opacity:1}10%,100%{opacity:.14}}
+        @media (prefers-reduced-motion:reduce){
+          .cbmb .tl,.cbmb .idle{animation:none}
+        }
+      </style>
+      <defs>
+        <marker id="cb" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7"
+                orient="auto"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker>
+      </defs>
 
-  <h2 id="reuse"><span class="num">5</span>Why a bigger cache would not help</h2>
+      <text class="mid xs" x="178" y="16">same pipe, same rate — 8 TB/s</text>
+      <text class="mid xs" x="566" y="16">tensor core, over time</text>
 
-  <!-- TODO(with author): L2 sits on the path but earns nothing during decode — the weight matrix
-       is split across 160 SMs, each SM reads different rows, and every byte is read once per token
-       and dropped. Hit rate ≈ 0. Hence: this is a reuse problem, not a cache problem — which is
-       what splits the fixes into batching (raise reuse) and fewer bytes (quantize, MLA, sparsity). -->
+      <!-- ============ prefill lane ============ -->
+      <text class="ac bd" x="20" y="48">Prefill</text>
+      <text class="xs" x="70" y="48">— one weight tile serves T tokens</text>
 
-  <h2 id="ridge"><span class="num">6</span>The ratio: 562 FLOP per byte</h2>
+      <rect class="vb" x="20" y="58" width="52" height="32" rx="3"/>
+      <text class="mid xs" x="46" y="78">HBM</text>
+      <rect class="sb" x="78" y="66" width="198" height="16" rx="2"/>
+      <rect class="qb tl"   x="80" y="68" width="12" height="12" rx="1"/>
+      <rect class="qb tl tl-b" x="80" y="68" width="12" height="12" rx="1"/>
+      <rect class="qb tl tl-c" x="80" y="68" width="12" height="12" rx="1"/>
+      <path class="ln" d="M280 74 H291" marker-end="url(#cb)"/>
+      <rect class="ab" x="294" y="54" width="134" height="40" rx="3"/>
+      <text class="xs" x="300" y="66">SM</text>
+      <rect x="300" y="72" width="16" height="16" rx="2" fill="var(--accent)"/>
+      <text class="xs" x="322" y="84">tensor core</text>
 
-  <p>Everything in the figure above collapses into a single number. A processor has two
-    independent budgets — a peak rate $\peak$ in FLOP/s and a bandwidth $\bw$ in byte/s — and a
-    kernel is characterised by its <strong>arithmetic intensity</strong>, the FLOPs it performs
-    per byte it pulls from memory:</p>
+      <rect class="sb" x="452" y="66" width="228" height="16" rx="2"/>
+      <rect x="452" y="66" width="228" height="16" rx="2" fill="var(--accent)"/>
+      <text class="bd" x="452" y="104">compute-bound</text>
+      <text class="xs" x="553" y="104">— busy 100%, the pipe is what waits</text>
+
+      <path class="dsh" d="M14 118 H686"/>
+
+      <!-- ============ decode lane ============ -->
+      <text class="ac bd" x="20" y="148">Decode</text>
+      <text class="xs" x="74" y="148">— one weight tile serves 1 token</text>
+
+      <rect class="vb" x="20" y="158" width="52" height="32" rx="3"/>
+      <text class="mid xs" x="46" y="178">HBM</text>
+      <rect class="sb" x="78" y="166" width="198" height="16" rx="2"/>
+      <rect class="qb tl"   x="80" y="168" width="12" height="12" rx="1"/>
+      <rect class="qb tl tl-b" x="80" y="168" width="12" height="12" rx="1"/>
+      <rect class="qb tl tl-c" x="80" y="168" width="12" height="12" rx="1"/>
+      <path class="ln" d="M280 174 H291" marker-end="url(#cb)"/>
+      <rect class="ab" x="294" y="154" width="134" height="40" rx="3"/>
+      <text class="xs" x="300" y="166">SM</text>
+      <rect class="idle" x="300" y="172" width="16" height="16" rx="2" fill="var(--accent)"
+            opacity=".15"/>
+      <text class="xs" x="322" y="184">tensor core</text>
+
+      <rect class="sb" x="452" y="166" width="228" height="16" rx="2"/>
+      <rect x="452"   y="166" width="4" height="16" fill="var(--accent)"/>
+      <rect x="480.5" y="166" width="4" height="16" fill="var(--accent)"/>
+      <rect x="509"   y="166" width="4" height="16" fill="var(--accent)"/>
+      <rect x="537.5" y="166" width="4" height="16" fill="var(--accent)"/>
+      <rect x="566"   y="166" width="4" height="16" fill="var(--accent)"/>
+      <rect x="594.5" y="166" width="4" height="16" fill="var(--accent)"/>
+      <rect x="623"   y="166" width="4" height="16" fill="var(--accent)"/>
+      <rect x="651.5" y="166" width="4" height="16" fill="var(--accent)"/>
+      <text class="bd" x="452" y="204">memory-bound</text>
+      <text class="xs" x="547" y="204">— busy 0.4%, the core is what waits</text>
+
+      <text class="mid xs" x="350" y="234">Both lanes are fed at the same 8 TB/s. Only the work each delivered byte carries differs —</text>
+      <text class="mid xs" x="350" y="248">562 FLOP per byte is where the two exactly balance.</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 2.</b> The same pipe, two workloads. Prefill keeps the core busy between
+      arrivals; decode empties it. The tick strip is drawn at 14% for legibility — the real decode
+      duty cycle is 0.4%.</figcaption>
+  </figure>
+
+  <p><strong>Prefill</strong> pushes $\Lctx$ tokens through the same weight tile, so a tile bought
+    once is multiplied $\Lctx$ times over. The core is still working when the next tile lands, so
+    the pipe is what waits: <strong>compute-bound</strong>.</p>
+
+  <p><strong>Decode</strong> pushes one token through it. The tile arrives, is used once, and the
+    core is finished long before the next tile shows up. Now the core waits:
+    <strong>memory-bound</strong>. Adding tensor cores would change nothing — they are not what is
+    missing.</p>
+
+  <p>562 is the crossing point between the two lanes. It is how much arithmetic one byte has to
+    carry for the core's work to last exactly as long as the wait for the next byte:</p>
 
   \begin{equation}
-    \AI \;\defeq\; \frac{\text{FLOPs performed}}{\text{bytes moved from memory}}
-    \qquad [\FLOP/\Bytes]
+    \ridge \;=\; \frac{\peak}{\bw} \;=\; \frac{4500\ \mathrm{TFLOP/s}}{8\ \mathrm{TB/s}}
+    \;=\; \mathbf{562\ \FLOP/\Bytes}
   \end{equation}
 
-  <p>The kernel can be limited by either budget, never beaten by both, so the best it can attain
-    is whichever runs out first:</p>
+  <p>Prefill over a 40k prompt brings tens of thousands of FLOPs per byte. Decode in FP8 brings
+    two — one multiply and one add per weight byte, because a weight is one byte and it is used
+    once. That factor is the entire distance between the two lanes above.</p>
+
+  <h2 id="ridge"><span class="num">3</span>The roofline</h2>
+
+  <p>The same statement, plotted. A kernel's <strong>arithmetic intensity</strong> $\AI$ is the
+    FLOPs it performs per byte it moves; neither budget can be exceeded, so the attainable rate is
+    whichever runs out first:</p>
 
   \begin{equation}
     \text{attainable FLOP/s} \;=\; \min\big(\peak,\; \bw \cdot \AI\big)
     \label{eq:roofline}
   \end{equation}
 
-  <p>The crossover is the <strong>ridge point</strong> $\ridge = \peak/\bw$. For a B200 in FP8:</p>
+  <p>Below $\ridge$ the second term binds and performance is a straight line in $\AI$; above it the
+    first binds and extra intensity buys nothing. $\bw$ is HBM's 8 TB/s: a byte crosses three links
+    to reach a core, but they run in series, so the narrowest one sets the rate.</p>
 
-  \begin{equation}
-    \ridge \;=\; \frac{4500\ \mathrm{TFLOP/s}}{8\ \mathrm{TB/s}} \;=\; \mathbf{562\ \FLOP/\Bytes}
-  \end{equation}
-
-  <p>Said in words: <em>a B200 can perform 562 FP8 operations in the time it takes to fetch one
-    byte.</em> Hand it a kernel with less intensity than that and the tensor cores wait, no matter
-    how well the kernel is written.</p>
-
-  <h3>Why only the bottom arrow enters the calculation</h3>
-
-  <p>It is fair to ask why $\bw$ is the HBM number when a byte actually crosses three links to
-    reach a tensor core. Because the links are in series, and a series of pipes runs at the width
-    of its narrowest section. Line the four up:</p>
-
-  <p style="text-align:center;font-family:var(--mono);font-size:.86rem">
-    8 &nbsp;&lt;&nbsp; ≈12 &nbsp;&lt;&nbsp; tens &nbsp;&lt;&nbsp; 100+ &nbsp;&nbsp;(TB/s)</p>
-
-  <p>HBM is the smallest, so HBM sets the rate and the upper three drop out of the arithmetic
-    entirely. This is not a coincidence of one chip: the whole point of a cache hierarchy is that
-    each level up is faster, which guarantees the bottom link is the slow one. What is unusual
-    about a GPU is how <em>little</em> headroom the next level up has — L2 is only about 1.5× HBM,
-    where a CPU's L2 is an order of magnitude faster than its DRAM.</p>
-
-  <p>The one thing that could invalidate the substitution is reuse: if a byte were fetched from
-    HBM once and then read many times out of L2, the HBM traffic would be smaller than the bytes
-    the kernel consumes. During decode that does not happen — L2's hit rate is essentially zero
-    (§5) — so every byte the kernel touches is a byte HBM had to deliver, and $\bw = 8$ TB/s is
-    exactly right.</p>
-
-  <h3>Where decode lands</h3>
-
-  <p>Now put a real workload on the axis. Generating one token from Qwen3-8B in FP8 reads all
-    8.2 GB of weights and does two FLOPs per parameter — one multiply, one add. One byte per
-    parameter, two FLOPs per parameter:</p>
-
-  \begin{equation}
-    \AI \;=\; \frac{2N}{1\,\Bytes \times N} \;=\; 2\ \FLOP/\Bytes
-  \end{equation}
-
-  <p>Two, against a ridge point of 562. Batch-1 decode sits more than 280× to the left of where
-    the chip stops being bandwidth-bound, which by \eqref{eq:roofline} means it can attain
-    $8 \times 2 = 16$ TFLOP/s — <strong>0.36% of the B200's peak</strong>. The other 99.64% of the
-    silicon is idle, and no amount of kernel engineering changes that, because the limit is not in
-    the kernel.</p>
+  <p>Batch-1 decode reads 8.2 GB of weights at two FLOPs per parameter, so $\AI = 2$ — more than
+    280× to the left of the ridge. By \eqref{eq:roofline} it attains $8 \times 2 = 16$ TFLOP/s,
+    <strong>0.36% of peak</strong>, and no amount of kernel engineering moves it, because the limit
+    is not in the kernel.</p>
 
   <figure>
     <div class="canvas">
     <svg viewBox="0 0 700 366" width="700" role="img"
-         aria-label="Log-log roofline for a B200 in FP8. The sloped bandwidth wall rises at 8 TFLOP/s per FLOP-per-byte and meets the 4500 TFLOP/s compute ceiling at the ridge point of 562 FLOP per byte. Batch-1 decode sits at intensity 2, more than 280 times to the left of the ridge, attaining 16 TFLOP/s. Prefill sits far to the right, on the ceiling.">
+         aria-label="Log-log roofline for three GPUs, all in dense FP8. Each has a sloped bandwidth wall that meets a flat compute ceiling at its ridge point: the B200 at 562 FLOP per byte, the H100 at 591, and the RTX 5090 at 234. Batch-1 decode sits at intensity 2, more than 280 times to the left of the B200 ridge, attaining 16 TFLOP/s. Prefill sits far to the right, on the ceiling.">
       <defs><marker id="rp" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="6" markerHeight="6"
              orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
       <path class="lnf" style="opacity:.28" d="M102.8 20 V320"/>
@@ -322,9 +353,14 @@
       <text class="xs end" x="63" y="98.5">1000</text>
       <text class="xs end" x="63" y="23.5">10⁴</text>
 
-      <text class="ac bd" x="80" y="34">B200 · 4500 TF/s (FP8 dense) · 8 TB/s</text>
-
+      <path fill="none" stroke="var(--fig-v)" stroke-width="1.4" stroke-dasharray="1 3"
+            stroke-linecap="round" d="M75.3 320 L360.8 123.3 H680"/>
+      <path fill="none" stroke="var(--fig-q)" stroke-width="1.4" stroke-dasharray="5 3"
+            d="M70 303.2 L404.6 72.8 H680"/>
       <path fill="none" stroke="var(--accent)" stroke-width="1.6" d="M70 274.8 L402.2 46 H680"/>
+
+      <circle cx="360.8" cy="123.3" r="2.6" fill="var(--fig-v)"/>
+      <circle cx="404.6" cy="72.8" r="2.6" fill="var(--fig-q)"/>
       <circle cx="402.2" cy="46" r="3" fill="var(--accent)"/>
       <text class="xs ac" x="412" y="41">ridge I* = 562</text>
 
@@ -337,78 +373,25 @@
             marker-start="url(#rp)" marker-end="url(#rp)"/>
       <text class="mid xs" x="269" y="294">280× short</text>
 
+      <rect x="448" y="234" width="228" height="62" rx="4" fill="var(--fig-face)"
+            stroke="var(--border)"/>
+      <path stroke="var(--accent)" stroke-width="1.6" d="M458 248 H482"/>
+      <text class="xs" x="488" y="251.5">B200 (4500 TF/s, 8 TB/s)</text>
+      <path stroke="var(--fig-q)" stroke-width="1.4" stroke-dasharray="5 3" d="M458 266 H482"/>
+      <text class="xs" x="488" y="269.5">H100 (1979 TF/s, 3.35 TB/s)</text>
+      <path stroke="var(--fig-v)" stroke-width="1.4" stroke-dasharray="1 3" stroke-linecap="round"
+            d="M458 284 H482"/>
+      <text class="xs" x="488" y="287.5">RTX 5090 (419 TF/s, 1.79 TB/s)</text>
+
       <text class="mid sm" x="375" y="352">arithmetic intensity I  (FLOP/byte)</text>
       <text class="sm" x="18" y="170" transform="rotate(-90 18 170)" text-anchor="middle">attainable TFLOP/s</text>
     </svg>
     </div>
-    <figcaption><b>Figure 2.</b> The B200 roofline in FP8. The sloped section is the bandwidth
-      wall, the flat section the compute ceiling. Prefill runs on the ceiling; batch-1 decode runs
-      near the far left of the slope.</figcaption>
+    <figcaption><b>Figure 3.</b> Rooflines for three GPUs, all quoted as dense FP8. The sloped
+      section is the bandwidth wall, the flat section the compute ceiling, and the corner is the
+      ridge point — 562 for the B200, 591 for the H100, 234 for the RTX 5090. Prefill runs on the
+      ceiling; batch-1 decode runs near the far left of every slope.</figcaption>
   </figure>
-
-  <p>The same fact stated as a clock, which is the form that matters when you are waiting for
-    tokens:</p>
-
-  <div class="numbox">
-    <span class="t">The batch-1 decode ceiling on one B200</span>
-    <div class="tablewrap">
-    <table>
-      <thead>
-        <tr><th class="flow">Per generated token</th><th class="num">Bytes</th><th class="num">Time</th><th class="num">Tokens/s</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Weights only (short context)</td><td class="num">8.2 GB</td><td class="num">1.03 ms</td><td class="num">975</td></tr>
-        <tr class="total"><td>Weights + 40k of KV cache</td><td class="num">11.2 GB</td><td class="num">1.39 ms</td><td class="num">717</td></tr>
-      </tbody>
-    </table>
-    </div>
-    <p>Divide bytes by 8 TB/s. That is the entire calculation — no FLOP count appears in it,
-      because none of it is compute.</p>
-  </div>
-
-  <h3>Why a newer chip is not the answer</h3>
-
-  <p>562 looks like it should be getting worse every generation, and the usual story says it is:
-    compute grows faster than bandwidth, so the ridge point drifts right and each new chip demands
-    more arithmetic per byte. Check it against this pair, though, and the story does not hold —
-    at a fixed number format the ridge barely moved, and it moved the <em>helpful</em> way:</p>
-
-  <div class="tablewrap">
-  <table>
-    <thead>
-      <tr><th class="flow">Ridge point</th><th class="num">H100</th><th class="num">B200</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>BF16</td><td class="num">989 / 3.35 = 295</td><td class="num">2250 / 8 = 281</td></tr>
-      <tr><td>FP8</td><td class="num">1979 / 3.35 = 591</td><td class="num">4500 / 8 = 562</td></tr>
-    </tbody>
-  </table>
-  </div>
-
-  <p>Blackwell improved bandwidth 2.4× and same-format compute 2.3×, so within a format the ratio
-    is flat. The reason 562 is twice 281 is not the generation at all — it is the column, not the
-    row. The ceiling doubles when the number format halves.</p>
-
-  <p>Which is the interesting part, because halving the format halves the <em>bytes</em> too.
-    Every other lever on a hardware roadmap raises a ceiling that batch-1 decode was never within
-    two orders of magnitude of. A narrower format is the one change that moves the side of the
-    ratio decode actually lives on. That is why quantization is not a compression trick in this
-    setting — it is the only hardware-side move that touches the binding constraint, and it is why
-    the software-side moves that remain all have the same shape: <strong>make fewer bytes cross the
-    bottom arrow per generated token.</strong></p>
-
-  <div class="keybox">
-    <span class="t">The sentence this whole post exists to set up</span>
-    <p>A B200 wants 562 FLOP per byte. Generating one token from an 8 GB model offers it 2.
-      Everything that follows — batching, paged attention, MoE, quantization, MLA, sparse
-      attention, speculative decoding — is a different way of raising that number.</p>
-  </div>
-
-  <p>What those bytes are made of, and why 8.2 GB of weights turns into 11.2 GB once the context
-    is long, is the subject of the companion post:
-    <a href="how-llms-work.html">How LLMs work, with Qwen3-8B</a>.</p>
-
-  <h2 id="cheat"><span class="num">A</span>Cheat sheet</h2>
 
   <footer>
     © 2026 Hyeondo Jang · Last updated 2026.08
