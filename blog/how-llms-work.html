@@ -33,6 +33,8 @@
     <ol>
       <li><span class="n">1</span><a href="#phases">Prefill and decode</a></li>
       <li><span class="n">2</span><a href="#stack">The Qwen3-8B architecture</a></li>
+      <li><span class="n">3</span><a href="#prefill">Deep dive: one prefill pass</a></li>
+      <li><span class="n">4</span><a href="#decode">Decode: what changes</a></li>
     </ol>
   </div>
 
@@ -269,6 +271,12 @@
     $\Lctx \times \dmodel$ matrix to another matrix of the same shape, with
     $\dmodel = 4096$ for Qwen3-8B. Only the two ends of the figure change shape: the
     tokenizer produces integers, and the LM head widens the last axis to the vocabulary.</p>
+
+  <h2 id="prefill"><span class="num">3</span>Deep dive: one prefill pass</h2>
+
+  <p>The stages below are the operators of <a href="#stack">Figure 2</a>, written out
+    one at a time for a prefill pass — all $\Lctx$ prompt tokens entering at once.
+    <a href="#decode">§4</a> then says what decode does differently.</p>
 
   <h3>Tokenizer</h3>
 
@@ -508,10 +516,10 @@
     \;\in\; \R^{\Lctx \times \Vocab}
   \end{equation}
 
-  <h3>What changes in decode</h3>
+  <h2 id="decode"><span class="num">4</span>Decode: what changes</h2>
 
-  <p>Everything above is written for prefill, where all $\Lctx$ prompt tokens go through the stack
-    at once. Decode runs the same weights through the same code on a single row, and most of the
+  <p><a href="#prefill">§3</a> is written for prefill, where all $\Lctx$ prompt tokens go through the
+    stack at once. Decode runs the same weights through the same code on a single row, and most of the
     figure simply narrows: the tokenizer emits one id, the embedding returns one row, RMSNorm
     rescales that row, and the feed-forward network — which acts on each row independently — sees a
     $1\times\dmodel$ input. None of those operators can tell the difference.</p>
