@@ -63,7 +63,7 @@
   <figure>
     <div class="canvas">
     <svg viewBox="0 0 700 410" width="700" role="img"
-         aria-label="The B200 memory hierarchy. One SM, replicated 160 times, holds four subpartitions each with a warp scheduler, 32 FP32 cores, one tensor core and a 64 KB register file; the four share one 256 KB block of L1 and shared memory at over 100 TB per second. Below the SM sits 126 MB of L2 on the compute die, reached at roughly 12 TB per second, and below that 288 GB of HBM3E reached at 8 TB per second through the HBM controllers. On-chip SRAM totals about 208 MB, so a 16.4 GB model only fits in the bottom row.">
+         aria-label="The B200 memory hierarchy. One SM, replicated 160 times, holds four subpartitions each with a warp scheduler, 32 FP32 cores, one tensor core and a 64 KB register file; the four share one 256 KB block of L1 and shared memory at over 100 TB per second. Below the SM sits 126 MB of L2 on the compute die, reached at roughly 12 TB per second, and below that 192 GB of HBM3E reached at 8 TB per second through the HBM controllers. On-chip SRAM totals about 208 MB, so an 8.2 GB model only fits in the bottom row.">
       <defs>
         <marker id="gh" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7"
                 orient="auto-start-reverse">
@@ -132,10 +132,10 @@
 
       <!-- HBM -->
       <rect class="vb" x="32" y="336" width="634" height="40" rx="4"/>
-      <text class="mid bd" x="349" y="353">HBM3E  —  288 GB, DRAM</text>
+      <text class="mid bd" x="349" y="353">HBM3E  —  192 GB, DRAM</text>
       <text class="mid xs" x="349" y="368">stacked dies beside the compute die  ·  this is where the model lives</text>
 
-      <text class="mid bd" x="349" y="396">On-chip SRAM is 208 MB in total. Qwen3-8B is 16.4 GB, so it only fits in the bottom row.</text>
+      <text class="mid bd" x="349" y="396">On-chip SRAM is 208 MB in total. Qwen3-8B is 8.2 GB in FP8, so it only fits in the bottom row.</text>
     </svg>
     </div>
     <figcaption><b>Figure 1.</b> The B200 memory hierarchy, drawn to make one point: every level
@@ -183,7 +183,7 @@
         <td>HBM3E</td>
         <td class="note">stacked beside the die</td>
         <td class="num">—</td>
-        <td class="num">288 GB</td>
+        <td class="num">192 GB</td>
         <td class="num">8 TB/s</td>
       </tr>
     </tbody>
@@ -195,20 +195,20 @@
     bandwidth falls the whole way down. There is no level that is both fast and large, and the
     jump happens in the wrong place: exactly where a model has to live.</p>
 
-  <p>How badly it lands is worth stating in units of a real model. Qwen3-8B in BF16 is 16.4 GB,
-    which is about <strong>80× all on-chip SRAM combined</strong>. L2 holds 0.77% of it. And it is
-    not as though a well-written kernel could stage the model layer by layer: one Qwen3-8B decoder
-    block is 193M parameters, or 386 MB in BF16 — already three times what L2 can hold. Not one
-    layer fits, let alone 36.</p>
+  <p>How badly it lands is worth stating in units of a real model. Qwen3-8B quantized to FP8 is
+    8.2 GB — one byte per parameter — which is about <strong>40× all on-chip SRAM combined</strong>.
+    L2 holds 1.5% of it. And it is not as though a well-written kernel could stage the model layer
+    by layer: one Qwen3-8B decoder block is 193M parameters, or 193 MB in FP8 — still more than
+    L2 can hold. Not one layer fits, let alone 36.</p>
 
   <p>So there is no choice to make about where the weights live. They live in HBM, and every
     forward pass has to pull them up through the bottom arrow of the figure.</p>
 
   <div class="keybox">
-    <span class="t">The one asymmetry</span>
-    <p>Per generation, compute grows roughly 4× (2× from the architecture, 2× from a narrower
-      number format), bandwidth roughly 2×, and capacity by less than 1.4×. The gap the figure
-      shows is not a flaw in this particular chip — it widens with every generation.</p>
+    <span class="t">The shape of the problem</span>
+    <p>The hierarchy is the wrong shape for a language model. Every level fast enough to keep the
+      tensor cores busy holds under 1.5% of Qwen3-8B; the only level that holds the whole model is
+      the slowest one — and it is the level every forward pass has to reach.</p>
   </div>
 
   <h2 id="path"><span class="num">4</span>The path a byte takes</h2>
@@ -228,10 +228,186 @@
 
   <h2 id="ridge"><span class="num">6</span>The ratio: 562 FLOP per byte</h2>
 
-  <!-- TODO(with author): pi / beta = 4500 TF/s / 8 TB/s = 562. State the roofline, note that the
-       serial path means the slowest link sets the rate so the upper arrows drop out of the
-       calculation, then hand off to the LLM post: 22 GB per decode step / 8 TB/s = 2.75 ms
-       => ~364 tok/s ceiling at batch 1. -->
+  <p>Everything in the figure above collapses into a single number. A processor has two
+    independent budgets — a peak rate $\peak$ in FLOP/s and a bandwidth $\bw$ in byte/s — and a
+    kernel is characterised by its <strong>arithmetic intensity</strong>, the FLOPs it performs
+    per byte it pulls from memory:</p>
+
+  \begin{equation}
+    \AI \;\defeq\; \frac{\text{FLOPs performed}}{\text{bytes moved from memory}}
+    \qquad [\FLOP/\Bytes]
+  \end{equation}
+
+  <p>The kernel can be limited by either budget, never beaten by both, so the best it can attain
+    is whichever runs out first:</p>
+
+  \begin{equation}
+    \text{attainable FLOP/s} \;=\; \min\big(\peak,\; \bw \cdot \AI\big)
+    \label{eq:roofline}
+  \end{equation}
+
+  <p>The crossover is the <strong>ridge point</strong> $\ridge = \peak/\bw$. For a B200 in FP8:</p>
+
+  \begin{equation}
+    \ridge \;=\; \frac{4500\ \mathrm{TFLOP/s}}{8\ \mathrm{TB/s}} \;=\; \mathbf{562\ \FLOP/\Bytes}
+  \end{equation}
+
+  <p>Said in words: <em>a B200 can perform 562 FP8 operations in the time it takes to fetch one
+    byte.</em> Hand it a kernel with less intensity than that and the tensor cores wait, no matter
+    how well the kernel is written.</p>
+
+  <h3>Why only the bottom arrow enters the calculation</h3>
+
+  <p>It is fair to ask why $\bw$ is the HBM number when a byte actually crosses three links to
+    reach a tensor core. Because the links are in series, and a series of pipes runs at the width
+    of its narrowest section. Line the four up:</p>
+
+  <p style="text-align:center;font-family:var(--mono);font-size:.86rem">
+    8 &nbsp;&lt;&nbsp; ≈12 &nbsp;&lt;&nbsp; tens &nbsp;&lt;&nbsp; 100+ &nbsp;&nbsp;(TB/s)</p>
+
+  <p>HBM is the smallest, so HBM sets the rate and the upper three drop out of the arithmetic
+    entirely. This is not a coincidence of one chip: the whole point of a cache hierarchy is that
+    each level up is faster, which guarantees the bottom link is the slow one. What is unusual
+    about a GPU is how <em>little</em> headroom the next level up has — L2 is only about 1.5× HBM,
+    where a CPU's L2 is an order of magnitude faster than its DRAM.</p>
+
+  <p>The one thing that could invalidate the substitution is reuse: if a byte were fetched from
+    HBM once and then read many times out of L2, the HBM traffic would be smaller than the bytes
+    the kernel consumes. During decode that does not happen — L2's hit rate is essentially zero
+    (§5) — so every byte the kernel touches is a byte HBM had to deliver, and $\bw = 8$ TB/s is
+    exactly right.</p>
+
+  <h3>Where decode lands</h3>
+
+  <p>Now put a real workload on the axis. Generating one token from Qwen3-8B in FP8 reads all
+    8.2 GB of weights and does two FLOPs per parameter — one multiply, one add. One byte per
+    parameter, two FLOPs per parameter:</p>
+
+  \begin{equation}
+    \AI \;=\; \frac{2N}{1\,\Bytes \times N} \;=\; 2\ \FLOP/\Bytes
+  \end{equation}
+
+  <p>Two, against a ridge point of 562. Batch-1 decode sits more than 280× to the left of where
+    the chip stops being bandwidth-bound, which by \eqref{eq:roofline} means it can attain
+    $8 \times 2 = 16$ TFLOP/s — <strong>0.36% of the B200's peak</strong>. The other 99.64% of the
+    silicon is idle, and no amount of kernel engineering changes that, because the limit is not in
+    the kernel.</p>
+
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 700 366" width="700" role="img"
+         aria-label="Log-log roofline for a B200 in FP8. The sloped bandwidth wall rises at 8 TFLOP/s per FLOP-per-byte and meets the 4500 TFLOP/s compute ceiling at the ridge point of 562 FLOP per byte. Batch-1 decode sits at intensity 2, more than 280 times to the left of the ridge, attaining 16 TFLOP/s. Prefill sits far to the right, on the ceiling.">
+      <path class="lnf" style="opacity:.28" d="M102.8 20 V320"/>
+      <path class="lnf" style="opacity:.28" d="M211.7 20 V320"/>
+      <path class="lnf" style="opacity:.28" d="M320.6 20 V320"/>
+      <path class="lnf" style="opacity:.28" d="M429.5 20 V320"/>
+      <path class="lnf" style="opacity:.28" d="M538.4 20 V320"/>
+      <path class="lnf" style="opacity:.28" d="M647.3 20 V320"/>
+      <path class="lnf" style="opacity:.28" d="M70 245 H680"/>
+      <path class="lnf" style="opacity:.28" d="M70 170 H680"/>
+      <path class="lnf" style="opacity:.28" d="M70 95 H680"/>
+      <path class="ln" d="M70 20 V320 H680"/>
+
+      <text class="mid xs" x="102.8" y="334">1</text>
+      <text class="mid xs" x="211.7" y="334">10</text>
+      <text class="mid xs" x="320.6" y="334">10²</text>
+      <text class="mid xs" x="429.5" y="334">10³</text>
+      <text class="mid xs" x="538.4" y="334">10⁴</text>
+      <text class="mid xs" x="647.3" y="334">10⁵</text>
+      <text class="xs end" x="63" y="323.5">1</text>
+      <text class="xs end" x="63" y="248.5">10</text>
+      <text class="xs end" x="63" y="173.5">100</text>
+      <text class="xs end" x="63" y="98.5">1000</text>
+      <text class="xs end" x="63" y="23.5">10⁴</text>
+
+      <text class="ac bd" x="80" y="34">B200 · 4500 TF/s (FP8 dense) · 8 TB/s</text>
+
+      <path fill="none" stroke="var(--accent)" stroke-width="1.6" d="M70 274.8 L402.2 46 H680"/>
+      <circle cx="402.2" cy="46" r="3" fill="var(--accent)"/>
+      <text class="xs ac" x="412" y="41">ridge I* = 562</text>
+
+      <circle cx="135.5" cy="229.7" r="3.2" fill="currentColor" stroke="currentColor"/>
+      <text class="xs" x="147" y="243">decode, batch 1 — I = 2, 16 TF/s</text>
+      <circle cx="614.5" cy="46" r="3.2" fill="currentColor" stroke="currentColor"/>
+      <text class="xs end" x="606" y="59">prefill</text>
+
+      <path class="ln" style="stroke-dasharray:4 3" d="M135.5 300 H402.2"
+            marker-start="url(#rp)" marker-end="url(#rp)"/>
+      <defs><marker id="rp" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="6" markerHeight="6"
+             orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/>
+             </marker></defs>
+      <text class="mid xs" x="269" y="294">280× short</text>
+
+      <text class="mid sm" x="375" y="352">arithmetic intensity I  (FLOP/byte)</text>
+      <text class="sm" x="18" y="170" transform="rotate(-90 18 170)" text-anchor="middle">attainable TFLOP/s</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 2.</b> The B200 roofline in FP8. The sloped section is the bandwidth
+      wall, the flat section the compute ceiling. Prefill runs on the ceiling; batch-1 decode runs
+      near the far left of the slope.</figcaption>
+  </figure>
+
+  <p>The same fact stated as a clock, which is the form that matters when you are waiting for
+    tokens:</p>
+
+  <div class="numbox">
+    <span class="t">The batch-1 decode ceiling on one B200</span>
+    <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th class="flow">Per generated token</th><th class="num">Bytes</th><th class="num">Time</th><th class="num">Tokens/s</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Weights only (short context)</td><td class="num">8.2 GB</td><td class="num">1.03 ms</td><td class="num">975</td></tr>
+        <tr class="total"><td>Weights + 40k of KV cache</td><td class="num">11.2 GB</td><td class="num">1.39 ms</td><td class="num">717</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Divide bytes by 8 TB/s. That is the entire calculation — no FLOP count appears in it,
+      because none of it is compute.</p>
+  </div>
+
+  <h3>Why a newer chip is not the answer</h3>
+
+  <p>562 looks like it should be getting worse every generation, and the usual story says it is:
+    compute grows faster than bandwidth, so the ridge point drifts right and each new chip demands
+    more arithmetic per byte. Check it against this pair, though, and the story does not hold —
+    at a fixed number format the ridge barely moved, and it moved the <em>helpful</em> way:</p>
+
+  <div class="tablewrap">
+  <table>
+    <thead>
+      <tr><th class="flow">Ridge point</th><th class="num">H100</th><th class="num">B200</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>BF16</td><td class="num">989 / 3.35 = 295</td><td class="num">2250 / 8 = 281</td></tr>
+      <tr><td>FP8</td><td class="num">1979 / 3.35 = 591</td><td class="num">4500 / 8 = 562</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Blackwell improved bandwidth 2.4× and same-format compute 2.3×, so within a format the ratio
+    is flat. The reason 562 is twice 281 is not the generation at all — it is the column, not the
+    row. The ceiling doubles when the number format halves.</p>
+
+  <p>Which is the interesting part, because halving the format halves the <em>bytes</em> too.
+    Every other lever on a hardware roadmap raises a ceiling that batch-1 decode was never within
+    two orders of magnitude of. A narrower format is the one change that moves the side of the
+    ratio decode actually lives on. That is why quantization is not a compression trick in this
+    setting — it is the only hardware-side move that touches the binding constraint, and it is why
+    the software-side moves that remain all have the same shape: <strong>make fewer bytes cross the
+    bottom arrow per generated token.</strong></p>
+
+  <div class="keybox">
+    <span class="t">The sentence this whole post exists to set up</span>
+    <p>A B200 wants 562 FLOP per byte. Generating one token from an 8 GB model offers it 2.
+      Everything that follows — batching, paged attention, MoE, quantization, MLA, sparse
+      attention, speculative decoding — is a different way of raising that number.</p>
+  </div>
+
+  <p>What those bytes are made of, and why 8.2 GB of weights turns into 11.2 GB once the context
+    is long, is the subject of the companion post:
+    <a href="how-llms-work.html">How LLMs work, with Qwen3-8B</a>.</p>
 
   <h2 id="cheat"><span class="num">A</span>Cheat sheet</h2>
 
