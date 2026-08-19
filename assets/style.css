@@ -298,3 +298,18 @@
   .post svg .mo{font-family:var(--mono);font-size:10px}
   .post svg .it{font-style:italic}
   .post svg .fnt{fill:var(--faint)}
+
+  /* ---------- Caption-level disclosure (the full-pass figure) ---------- */
+  .post .expand{margin-top:9px}
+  .post .expand>summary{cursor:pointer;color:var(--accent);font-size:.82rem;
+                        list-style:none;display:inline-flex;align-items:center;gap:6px}
+  .post .expand>summary::-webkit-details-marker{display:none}
+  .post .expand>summary::before{content:"▸";font-size:.72em;line-height:1}
+  .post .expand[open]>summary::before{content:"▾"}
+  .post .expand>summary:hover{color:var(--accent-2)}
+  /* This caption hosts a full-width figure, so it opts out of the 70ch measure,
+     and the wide SVG keeps its natural size and scrolls instead of shrinking. */
+  .post figcaption.wide{max-width:none}
+  .post .expand .canvas{margin-top:11px}
+  .post .expand .canvas svg{max-width:none}
+  .post .expand .hint{display:block;margin-top:7px;font-size:.76rem;color:var(--faint)}
