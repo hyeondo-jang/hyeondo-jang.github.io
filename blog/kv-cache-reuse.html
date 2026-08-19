@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Reusing the KV cache — Hyeondo Jang</title>
-<meta name="description" content="How a KV cache can be reused across requests: the prefix-closure invariant, paged prefix caching and radix trees, what RoPE and cross-attention break, approximate reuse past the prefix, and where the cache lives.">
+<meta name="description" content="Why the keys and values a decode step reads are computed once and never recomputed to a different value.">
 <meta name="author" content="Hyeondo Jang">
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjMGU3YTk1Ii8+PHRleHQgeD0iNTAiIHk9IjUwIiBkeT0iLjM0ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJ1aS1tb25vc3BhY2UsU0ZNb25vLVJlZ3VsYXIsTWVubG8sbW9ub3NwYWNlIiBmb250LXNpemU9IjQ0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjZmZmZmZmIj5ISjwvdGV4dD48L3N2Zz4=">
 <!-- Open Graph -->
 <meta property="og:title" content="Reusing the KV cache">
-<meta property="og:description" content="Why a KV cache can be reused at all, and what it takes to actually find the part you already have.">
+<meta property="og:description" content="Why the keys and values a decode step reads never change.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://hyeondo-jang.github.io/blog/kv-cache-reuse.html">
 <link rel="stylesheet" href="../assets/style.css">
@@ -28,375 +28,61 @@
   <h1>Reusing the KV cache</h1>
   <p class="byline">2026.08.20 · Hyeondo Jang</p>
 
-  <p class="lede">A KV cache is usually introduced as a within-request optimization: keep the keys
-    and values of the tokens you have already seen so decode does not redo them. But the same
-    entries are often valid for the <em>next</em> request too, and for the request after that. This
-    post is about when that is true, why it is true, and what it costs to exploit.</p>
+  <h2 id="invariant">The invariant that makes reuse legal</h2>
 
-  <div class="toc-box">
-    <p>Contents</p>
-    <ol>
-      <li><span class="n">1</span><a href="#invariant">The reuse invariant</a></li>
-      <li><span class="n">2</span><a href="#worth">What a hit is worth</a></li>
-      <li><span class="n">3</span><a href="#prefix">Prefix caching</a></li>
-      <li><span class="n">4</span><a href="#limits">Where exactness stops</a></li>
-      <li><span class="n">5</span><a href="#beyond">Reuse past the prefix</a></li>
-      <li><span class="n">6</span><a href="#hierarchy">Where the cache lives</a></li>
-      <li><span class="n">A</span><a href="#cheat">Cheat sheet</a></li>
-    </ol>
-  </div>
-
-  <h2 id="invariant"><span class="num">1</span>The invariant that makes reuse legal</h2>
-
-  <figure>
-    <div class="canvas">
-    <svg viewBox="0 0 730 258" width="730" role="img"
-         aria-label="Panel a: cache entry 3 receives paths from tokens 1, 2 and 3 through the 36 blocks, and no path from token 4, which is crossed out. Panel b: two requests that share their first three tokens have identical first three cache entries; only the request-specific suffix entries differ.">
-      <defs><marker id="kv1" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker>
-      <marker id="kv1s" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
-
-      <!-- panel (a) -->
-      <text class="bd" x="4" y="14" font-size="11">(a)</text>
-      <text class="mid" x="166" y="14" font-size="11">one request</text>
-
-      <rect class="st" x="24"  y="40" width="52" height="24" rx="2"/>
-      <text class="mid mo" x="50"  y="57">t₁</text>
-      <rect class="st" x="82"  y="40" width="52" height="24" rx="2"/>
-      <text class="mid mo" x="108" y="57">t₂</text>
-      <rect class="st" x="140" y="40" width="52" height="24" rx="2"/>
-      <text class="mid mo" x="166" y="57">t₃</text>
-      <rect class="st" x="198" y="40" width="52" height="24" rx="2"/>
-      <text class="mid mo" x="224" y="57">t₄</text>
-      <rect class="st" x="256" y="40" width="52" height="24" rx="2"/>
-      <text class="mid mo" x="282" y="57">t₅</text>
-
-      <path class="ln" d="M50 66  L158 172" marker-end="url(#kv1)"/>
-      <path class="ln" d="M108 66 L166 172" marker-end="url(#kv1)"/>
-      <path class="ln" d="M166 66 L174 172" marker-end="url(#kv1)"/>
-      <path class="ln" style="stroke-dasharray:4 3;opacity:.6" d="M224 66 L188 172"/>
-      <path d="M199 113 L211 125" stroke="var(--fig-line)" stroke-width="1.3" fill="none"/>
-      <path d="M211 113 L199 125" stroke="var(--fig-line)" stroke-width="1.3" fill="none"/>
-      <text class="mid xs" x="254" y="122">no such path</text>
-      <text class="xs it mid" transform="translate(13,122) rotate(-90)">through all 36 blocks</text>
-
-      <rect class="st" x="24"  y="176" width="52" height="26" rx="2"/>
-      <text class="mid mo" x="50"  y="193" font-size="9">k₁v₁</text>
-      <rect class="st" x="82"  y="176" width="52" height="26" rx="2"/>
-      <text class="mid mo" x="108" y="193" font-size="9">k₂v₂</text>
-      <rect class="ab" x="140" y="176" width="52" height="26" rx="2"/>
-      <text class="mid mo" x="166" y="193" font-size="9">k₃v₃</text>
-      <rect class="st" x="198" y="176" width="52" height="26" rx="2"/>
-      <text class="mid mo" x="224" y="193" font-size="9">k₄v₄</text>
-      <rect class="st" x="256" y="176" width="52" height="26" rx="2"/>
-      <text class="mid mo" x="282" y="193" font-size="9">k₅v₅</text>
-
-      <text class="mid mo" x="166" y="224" font-size="9.5">entry 3 = f(t₁, t₂, t₃)</text>
-
-      <path class="dsh" d="M356 10 V246"/>
-
-      <!-- panel (b) -->
-      <text class="bd" x="374" y="14" font-size="11">(b)</text>
-      <text class="mid" x="562" y="14" font-size="11">two requests, shared prefix</text>
-
-      <rect x="432" y="26" width="152" height="156" rx="4"
-            fill="var(--fig-at)" stroke="var(--accent)" stroke-width="1" stroke-dasharray="4 3"/>
-
-      <text class="end sm" x="428" y="47">req A</text>
-      <rect class="st" x="436" y="32" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="459" y="47" font-size="9">P₁</text>
-      <rect class="st" x="487" y="32" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="510" y="47" font-size="9">P₂</text>
-      <rect class="st" x="538" y="32" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="561" y="47" font-size="9">P₃</text>
-      <rect class="qb" x="589" y="32" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="612" y="47" font-size="9">u₄</text>
-      <rect class="qb" x="640" y="32" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="663" y="47" font-size="9">u₅</text>
-
-      <path class="ln" d="M459 56 V66" marker-end="url(#kv1s)"/>
-      <path class="ln" d="M510 56 V66" marker-end="url(#kv1s)"/>
-      <path class="ln" d="M561 56 V66" marker-end="url(#kv1s)"/>
-      <path class="ln" d="M612 56 V66" marker-end="url(#kv1s)"/>
-      <path class="ln" d="M663 56 V66" marker-end="url(#kv1s)"/>
-
-      <rect class="st" x="436" y="68" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="459" y="83" font-size="9">kv₁</text>
-      <rect class="st" x="487" y="68" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="510" y="83" font-size="9">kv₂</text>
-      <rect class="st" x="538" y="68" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="561" y="83" font-size="9">kv₃</text>
-      <rect class="qb" x="589" y="68" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="612" y="83" font-size="9">kv₄</text>
-      <rect class="qb" x="640" y="68" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="663" y="83" font-size="9">kv₅</text>
-
-      <text class="mid fnt" x="612" y="108" font-size="13">≠</text>
-      <text class="mid fnt" x="663" y="108" font-size="13">≠</text>
-
-      <text class="end sm" x="428" y="133">req B</text>
-      <rect class="st" x="436" y="118" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="459" y="133" font-size="9">P₁</text>
-      <rect class="st" x="487" y="118" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="510" y="133" font-size="9">P₂</text>
-      <rect class="st" x="538" y="118" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="561" y="133" font-size="9">P₃</text>
-      <rect class="vb" x="589" y="118" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="612" y="133" font-size="9">w₄</text>
-      <rect class="vb" x="640" y="118" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="663" y="133" font-size="9">w₅</text>
-
-      <path class="ln" d="M459 142 V152" marker-end="url(#kv1s)"/>
-      <path class="ln" d="M510 142 V152" marker-end="url(#kv1s)"/>
-      <path class="ln" d="M561 142 V152" marker-end="url(#kv1s)"/>
-      <path class="ln" d="M612 142 V152" marker-end="url(#kv1s)"/>
-      <path class="ln" d="M663 142 V152" marker-end="url(#kv1s)"/>
-
-      <rect class="st" x="436" y="154" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="459" y="169" font-size="9">kv₁</text>
-      <rect class="st" x="487" y="154" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="510" y="169" font-size="9">kv₂</text>
-      <rect class="st" x="538" y="154" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="561" y="169" font-size="9">kv₃</text>
-      <rect class="vb" x="589" y="154" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="612" y="169" font-size="9">kv₄</text>
-      <rect class="vb" x="640" y="154" width="46" height="22" rx="2"/>
-      <text class="mid mo" x="663" y="169" font-size="9">kv₅</text>
-
-      <text class="mid ac sm" x="508" y="200">identical — compute once, reuse</text>
-      <text class="mid xs" x="637" y="200">request-specific</text>
-      <text class="mid xs" x="562" y="224">the suffix leaves no trace on the prefix</text>
-    </svg>
-    </div>
-    <figcaption><b>Figure 1.</b> The KV cache is a prefix-closed function of the token ids.
-      (a) Causal masking means entry <i>i</i> is reachable only from tokens 1…<i>i</i>.
-      (b) So two requests that begin with the same tokens begin with the same entries.</figcaption>
-  </figure>
-
-  <p>Decode reads the cache; it never rewrites it. At step <i>t</i> the model forms one query per
-    head for the new token and attends over keys and values that were written at steps
-    $1,\dots,t-1$, and those earlier entries are never touched again — that is the whole point of
-    <a href="how-llms-work.html#kv">keeping them</a>.</p>
-
-  <p>That alone does not license reuse across requests. Reuse needs a stronger claim: that an entry
-    is determined by the tokens <em>before</em> it and by nothing else. It is, and the reason is
-    that exactly one stage in the stack moves information between positions.</p>
-
-  <p>Every other stage is row-wise. RMSNorm rescales each row on its own, the feed-forward network
-    maps row <i>i</i> to row <i>i</i>, and the residual adds line up position by position:</p>
+  <p>Decode computes one row. Suppose $t$ tokens have been processed and the model needs the
+    output at position $t+1$. Inside one head of one layer, attention is defined on the whole
+    sequence, but only its last row is ever used:</p>
 
   \begin{equation}
-    \big[\RMSNorm(\mat{X})\big]_i = \RMSNorm(\vect{x}_i), \qquad
-    \big[\FFN(\mat{X})\big]_i = \FFN(\vect{x}_i)
+    \begin{aligned}
+      \vect{o}_{t+1}
+      &= \left[\softmax\!\left(\frac{\mat{Q}\mat{K}\T}{\sqrt{\dhead}} + \mat{M}\right)\mat{V}
+         \right]_{t+1,\,:} \\[3pt]
+      &= \left[\softmax\!\left(\frac{\mat{Q}\mat{K}\T}{\sqrt{\dhead}} + \mat{M}\right)
+         \right]_{t+1,\,:}\mat{V} \\[3pt]
+      &= \softmax\!\left(\frac{\mat{Q}_{t+1,\,:}\,\mat{K}\T}{\sqrt{\dhead}}\right)\mat{V} \\[3pt]
+      &= \softmax\!\left(\frac{\vect{q}\,\mat{K}\T}{\sqrt{\dhead}}\right)\mat{V}
+    \end{aligned}
   \end{equation}
 
-  <p>Attention is the exception, and the causal mask makes it a one-directional one. Row <i>i</i> of
-    the attention output is a weighted average of value rows at positions $j \le i$, with no term
-    beyond $i$ at all:</p>
+  <p>Two facts do the work. Row $t+1$ of a product is row $t+1$ of the left factor times the right
+    factor, and $\softmax$ acts row by row, so the row index passes through both. The causal mask
+    $\mat{M}$ is vacuous on the last row — position $t+1$ may attend to everything before it — so it drops out.
+    What remains is a single query row $\vect{q} = \mat{Q}_{t+1,\,:} \in \R^{1\times\dhead}$ against
+    $\mat{K},\mat{V} \in \R^{(t+1)\times\dhead}$: the full $\mat{Q}$ never has to be formed, but
+    $\mat{K}$ and $\mat{V}$ are needed in full. That is what the cache holds.</p>
+
+  <p>And $\mat{K}$, $\mat{V}$ are only ever appended to. Row $i$ of the layer-$\ell$ cache is</p>
 
   \begin{equation}
-    \big[\Attn(\mat{Q},\mat{K},\mat{V})\big]_i \;=\; \sum_{j=1}^{i} \alpha_{ij}\,\vect{v}_j,
-    \qquad
-    \alpha_{ij} \;=\;
-    \frac{\exp\!\big(\vect{q}_i\T\vect{k}_j/\sqrt{\dhead}\big)}
-         {\sum_{j'=1}^{i}\exp\!\big(\vect{q}_i\T\vect{k}_{j'}/\sqrt{\dhead}\big)}
+    \vect{k}_i = \Rope_i\!\big(\vect{x}^{(\ell-1)}_i\mat{W}_K\big), \qquad
+    \vect{v}_i = \vect{x}^{(\ell-1)}_i\mat{W}_V
   \end{equation}
 
-  <p>Now induct over the $\nlayer = 36$ blocks. Row <i>i</i> of $\mat{X}^{(0)}$ is the embedding of
-    $t_i$, so it is a function of $t_i$ alone. If rows $1,\dots,i$ of $\mat{X}^{(\ell-1)}$ are
-    functions of $t_1,\dots,t_i$, then attention at block $\ell$ pulls in only those rows and every
-    other stage stays on row <i>i</i>, so the same holds at block $\ell$:</p>
+  <p>and $\vect{x}^{(\ell-1)}_i$ is a function of $t_1,\dots,t_i$ alone: causal attention lets no
+    later position reach it, and every other stage in the block is row-wise. So the step that
+    produces position $t+1$ writes one new row and leaves the others untouched,</p>
 
   \begin{equation}
-    \vect{x}^{(\ell)}_i \;=\; f^{(\ell)}_i(t_1,\dots,t_i),
-    \qquad \ell = 0,1,\dots,\nlayer
+    \mat{K}_{1:t+1} =
+    \begin{bmatrix} \mat{K}_{1:t} \\ \vect{k}_{t+1} \end{bmatrix}, \qquad
+    \mat{V}_{1:t+1} =
+    \begin{bmatrix} \mat{V}_{1:t} \\ \vect{v}_{t+1} \end{bmatrix}
   \end{equation}
 
-  <p>The keys and values at block $\ell$ are row-wise linear maps of that row — RMSNorm first,
-    which is row-wise too — followed by a rotation $\Rope_i$ fixed by the position index alone:</p>
-
-  \begin{equation}
-    \vect{k}^{(\ell)}_i = \Rope_i\!\big(\vect{x}^{(\ell-1)}_i \mat{W}^{(\ell)}_K\big),
-    \qquad
-    \vect{v}^{(\ell)}_i = \vect{x}^{(\ell-1)}_i \mat{W}^{(\ell)}_V
-  \end{equation}
-
-  <p>So every cache entry inherits the same dependency. Write $\KVc_{1:S}$ for the first $S$ entries
-    of the cache, across all layers and heads. The cache is <strong>prefix-closed</strong>:</p>
+  <p>Whether row $i$ was written during prefill or during an earlier decode step, it is the same
+    row, and it is the row every later step reads. Nothing recomputes it to a different value.
+    Stated for the cache as a whole, with $\KVc_{1:S}$ the first $S$ entries over all layers and
+    heads:</p>
 
   \begin{equation}
     \KVc_{1:S}\big(t_{1:T}\big) \;=\; \KVc_{1:S}\big(t_{1:S}\big)
     \qquad\text{for every } S \le T
   \end{equation}
 
-  <p>Read it right to left. The cache you get by prefilling only the first $S$ tokens is exactly the
-    first $S$ entries of the cache you get by prefilling all $T$ of them. Adding tokens on the right
-    changes nothing on the left. Two requests that begin with the same $S$ tokens therefore hold the
-    same first $S$ entries — not approximately, the same numbers — and the second one can read what
-    the first one already wrote.</p>
-
-  <div class="keybox">
-    <span class="t">The reuse invariant</span>
-    <p>The KV cache is a pure, prefix-closed function of the token ids. Everything that follows is
-      an engineering answer to a single question: how do you cheaply find and address the part of a
-      cache you already have?</p>
-  </div>
-
-  <p>Note what the invariant does <em>not</em> say. It is a statement about prefixes, and it runs
-    one way only. A chunk of tokens sitting in the middle of a prompt is not a function of itself —
-    it is a function of itself <em>and everything to its left</em>. Lift a document out of one
-    prompt and drop it into another and its cached entries are wrong, because they encode attention
-    to a left context that is no longer there, at positions it no longer occupies. Section 4 makes
-    both failures precise; section 5 asks what can be salvaged.</p>
-
-  <p>One more caveat, which is about arithmetic rather than mathematics. Equality here holds
-    exactly in $\R$, and only approximately in floating point: prefilling $T$ tokens and prefilling
-    $S &lt; T$ tokens can choose different kernel tilings and reduction orders, so a reused entry may
-    differ from a recomputed one in the last few bits. Serving stacks accept this. It is the same
-    class of nondeterminism you already get from changing the batch size.</p>
-
-  <h2 id="worth"><span class="num">2</span>What a hit is worth</h2>
-  <!-- TODO(with author): quantify the win. Prefill FLOPs and TTFT as a function of the hit fraction; why the
-       saving lands almost entirely on TTFT and not on inter-token latency; the quadratic attention
-       term vs. the linear projection term; batch-level effect (freed prefill capacity raises
-       throughput, not just latency); where reuse buys nothing (short prompts, unique prompts).
-       FIGURE: TTFT vs. hit fraction, or a prefill/decode timeline with and without a hit. -->
-
-  <h2 id="prefix"><span class="num">3</span>Exact reuse: prefix caching</h2>
-
-  <figure>
-    <div class="canvas">
-    <svg viewBox="0 0 730 274" width="730" role="img"
-         aria-label="Panel a: a token sequence is cut into fixed-size blocks, each block hashed together with the hash of the block before it, and the resulting hashes index a table mapping hash to physical page. Panel b: the live prefixes form a radix tree whose root path is a shared system prompt with reference count two, branching into two conversations.">
-      <defs><marker id="kv2" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker>
-      <marker id="kv2a" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--accent)"/></marker></defs>
-
-      <!-- panel (a) -->
-      <text class="bd" x="4" y="14" font-size="11">(a)</text>
-      <text class="mid" x="163" y="14" font-size="11">blocks are keyed by their whole prefix</text>
-
-      <rect class="st" x="20"  y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="44"  y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="68"  y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="92"  y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="116" y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="140" y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="164" y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="188" y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="212" y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="236" y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="260" y="34" width="22" height="20" rx="1.5"/>
-      <rect class="st" x="284" y="34" width="22" height="20" rx="1.5"/>
-      <text class="xs" x="20" y="28">prompt tokens</text>
-
-      <path class="ln" d="M67 58  V72" marker-end="url(#kv2)"/>
-      <path class="ln" d="M163 58 V72" marker-end="url(#kv2)"/>
-      <path class="ln" d="M259 58 V72" marker-end="url(#kv2)"/>
-
-      <rect class="ab" x="21"  y="74" width="92" height="22" rx="2"/>
-      <text class="mid mo" x="67"  y="89" font-size="8">h₁ = H(⊥, blk₁)</text>
-      <rect class="ab" x="117" y="74" width="92" height="22" rx="2"/>
-      <text class="mid mo" x="163" y="89" font-size="8">h₂ = H(h₁, blk₂)</text>
-      <rect class="ab" x="213" y="74" width="92" height="22" rx="2"/>
-      <text class="mid mo" x="259" y="89" font-size="8">h₃ = H(h₂, blk₃)</text>
-
-      <path class="ln" d="M67 98  V126" marker-end="url(#kv2)"/>
-      <path class="ln" d="M163 98 V126" marker-end="url(#kv2)"/>
-      <path class="ln" d="M259 98 V126" marker-end="url(#kv2)"/>
-
-      <rect class="sb" x="56" y="128" width="214" height="88" rx="3"/>
-      <text class="mid sm" x="163" y="144">block table</text>
-      <path class="lnf" d="M66 152 H260"/>
-      <text class="mo" x="76" y="168" font-size="9">h₁</text>
-      <text class="mid fnt" x="140" y="168" font-size="9">↦</text>
-      <text class="mo" x="176" y="168" font-size="9">page 7</text>
-      <text class="mo" x="76" y="186" font-size="9">h₂</text>
-      <text class="mid fnt" x="140" y="186" font-size="9">↦</text>
-      <text class="mo" x="176" y="186" font-size="9">page 2</text>
-      <text class="mo" x="76" y="204" font-size="9">h₃</text>
-      <text class="mid fnt" x="140" y="204" font-size="9">↦</text>
-      <text class="mo" x="176" y="204" font-size="9">page 9</text>
-
-      <text class="mid xs" x="163" y="238">a block’s key is its content plus its history —</text>
-      <text class="mid xs" x="163" y="250">same tokens, different prefix, different key</text>
-
-      <path class="dsh" d="M340 10 V262"/>
-
-      <!-- panel (b) -->
-      <text class="bd" x="358" y="14" font-size="11">(b)</text>
-      <text class="mid" x="546" y="14" font-size="11">the live prefixes form a radix tree</text>
-
-      <rect class="st" x="516" y="30" width="60" height="20" rx="2"/>
-      <text class="mid mo" x="546" y="44" font-size="9">root</text>
-
-      <path class="ln" style="stroke:var(--accent);stroke-width:1.4" d="M546 50 V68" marker-end="url(#kv2a)"/>
-      <rect class="ab" x="452" y="70" width="188" height="24" rx="2"/>
-      <text class="mid" x="546" y="86" font-size="10">system prompt · 3 blocks</text>
-      <text class="xs ac" x="650" y="86">ref 2</text>
-
-      <path class="ln" style="stroke:var(--accent);stroke-width:1.4" d="M500 94 V104 H426 V120" marker-end="url(#kv2a)"/>
-      <path class="ln" d="M592 94 V104 H618 V120" marker-end="url(#kv2)"/>
-
-      <rect class="st" x="356" y="122" width="140" height="24" rx="2"/>
-      <text class="mid" x="426" y="138" font-size="10">chat A · 4 blocks</text>
-      <text class="xs" x="502" y="138">ref 1</text>
-      <rect class="st" x="548" y="122" width="140" height="24" rx="2"/>
-      <text class="mid" x="618" y="138" font-size="10">chat B · 2 blocks</text>
-      <text class="xs" x="694" y="138">ref 1</text>
-
-      <path class="ln" style="stroke:var(--accent);stroke-width:1.4" d="M426 146 V170" marker-end="url(#kv2a)"/>
-      <rect class="qb" x="356" y="172" width="140" height="24" rx="2"/>
-      <text class="mid" x="426" y="188" font-size="10">new turn · miss</text>
-
-      <text class="mid ac xs" x="546" y="216">a request walks down while block hashes match;</text>
-      <text class="mid ac xs" x="546" y="228">prefill resumes at the first mismatch</text>
-      <text class="mid xs" x="546" y="250">eviction takes ref-0 leaves first, so shared trunks outlive branches</text>
-    </svg>
-    </div>
-    <figcaption><b>Figure 2.</b> Exact reuse is a lookup problem. (a) Each fixed-size block is
-      hashed together with the hash of the block before it, so a hash names a prefix rather than a
-      fragment. (b) The set of cached prefixes is a radix tree; matching walks down it, and the
-      shared trunk is physically shared.</figcaption>
-  </figure>
-
-  <!-- TODO(with author): how the invariant is cashed in. Paged KV (fixed-size blocks) as the unit of sharing;
-       prefix hash chaining and why the parent hash must be in the key; radix-tree matching
-       (SGLang RadixAttention) vs. flat hash table (vLLM APC); reference counting, copy-on-write
-       for forks (parallel sampling, beam search, tree search); LRU eviction on the tree; the
-       workloads this covers (system prompts, few-shot blocks, multi-turn chat, agent scratchpads,
-       document Q&A) and why multi-turn is the big one. -->
-
-  <h2 id="limits"><span class="num">4</span>Where exactness stops</h2>
-  <!-- TODO(with author): the two hard walls. (i) Position: RoPE folds absolute index into k, so the same text
-       at a different offset has different keys — reuse must be prefix-aligned, and a shifted chunk
-       needs re-encoding. (ii) Cross-attention: a chunk's entries encode attention to its actual
-       left context, so independently-prefilled chunks cannot simply be concatenated. Also: block
-       granularity truncates the hit at the last full block; anything that perturbs the prefix
-       (timestamps, ids, reordered retrieved docs) destroys it — prompt layout is a cache decision.
-       FIGURE: (a) same tokens at two offsets giving different keys under R(theta, i);
-       (b) 2x2 block attention matrix with the lower-left block missing. -->
-
-  <h2 id="beyond"><span class="num">5</span>Reuse past the prefix</h2>
-  <!-- TODO(with author): trading exactness for hit rate. PromptCache-style modular position slots; CacheBlend's
-       selective recompute of the highest-deviation tokens to restore cross-attention at a few
-       percent of prefill cost; when the approximation is acceptable (RAG contexts, mostly
-       independent documents) and when it is not; how to measure the damage (task metric, not
-       cache-vector distance). FIGURE: chunks loaded, positions re-encoded, a sparse subset of
-       tokens recomputed. -->
-
-  <h2 id="hierarchy"><span class="num">6</span>Where the cache lives</h2>
-  <!-- TODO(with author): reuse is only free if the bytes are close. Reuse the tier numbers from
-       how-gpus-work.html#hierarchy rather than restating them. Cache size per token for Qwen3-8B (GQA,
-       36 layers, 8 KV heads, 128 head dim, fp16) -> how few sequences fit in HBM; the tiers
-       (HBM / host DRAM over PCIe / NVMe / remote store) with bandwidths; the break-even
-       inequality (bytes-to-move / transfer bandwidth vs. prefill FLOPs / compute throughput) and
-       what it implies about which tier is worth a hit; overlapping load with compute; quantized
-       or compressed caches as a way to move the break-even. FIGURE: the tier staircase with
-       bandwidths and the break-even crossover. -->
-
-  <h2 id="cheat"><span class="num">A</span>Cheat sheet</h2>
-  <!-- TODO(with author): one-screen table. Reuse mode | what must match | exact? | typical saving | cost. Plus
-       the practical rules: put the stable text first, keep it byte-identical, align to block
-       size, and measure hit rate as a first-class serving metric. -->
+  <p>The cache is prefix-closed: what follows a prefix never changes the prefix's entries. So they
+    stay valid for the rest of this sequence, and for any other sequence starting the same way.</p>
 
   <footer>
     © 2026 Hyeondo Jang · Last updated 2026.08
