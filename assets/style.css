@@ -295,3 +295,7 @@
   .post svg .lnf{fill:none;stroke:var(--fig-line);stroke-width:.7;opacity:.75}
   .post svg .lna{fill:none;stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3}
   .post svg .dsh{fill:none;stroke:var(--border);stroke-width:1;stroke-dasharray:4 4}
+  .post svg .mo{font-family:var(--mono);font-size:10px}
+  .post svg .it{font-style:italic}
+  .post svg .stf{fill:var(--fig-face);stroke:var(--border);stroke-width:1}
+  .post svg .fnt{fill:var(--faint)}

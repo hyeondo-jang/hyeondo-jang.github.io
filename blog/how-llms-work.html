@@ -28,10 +28,6 @@
   <h1>How LLMs work, with Qwen3-8B</h1>
   <p class="byline">2026.08.19 · Hyeondo Jang</p>
 
-  <p class="note">Draft — intro to come. Running example throughout: Qwen3-8B
-    (d = 4096, L = 36, 32 query heads, 8 K/V heads, d_h = 128, d_ff = 12,288,
-    vocab 151,936).</p>
-
   <div class="toc-box">
     <p>Contents</p>
     <ol>
@@ -48,63 +44,84 @@
 
   <h2 id="phases"><span class="num">1</span>Prefill and decode: what runs when you send a prompt</h2>
 
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 730 246" width="730" role="img"
+         aria-label="Prefill runs one forward pass over the whole prompt; decode runs one forward pass per generated token.">
+      <defs><marker id="pd1" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker>
+      <marker id="pd2" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
+
+      <text class="mid bd" x="158" y="22" font-size="12">Prefill phase</text>
+      <text class="mid xs" x="158" y="44">a next token at every position — only the last one is used</text>
+      <rect class="stf" x="10" y="58" width="62" height="24" rx="2"/>
+      <text class="mid mo fnt" x="41" y="74">is</text>
+      <rect class="stf" x="88" y="58" width="62" height="24" rx="2"/>
+      <text class="mid mo fnt" x="119" y="74">the</text>
+      <text class="mid mo fnt" x="197" y="74">⋯</text>
+      <rect class="ab" x="244" y="58" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="275" y="74">The</text>
+      <rect class="sb" x="10" y="112" width="296" height="42" rx="3"/>
+      <text class="mid" x="158" y="129">Model</text>
+      <text class="mid xs it" x="158" y="144">step 1 — all positions at once</text>
+      <rect class="st" x="10" y="180" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="41" y="196">What</text>
+      <rect class="st" x="88" y="180" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="119" y="196">is</text>
+      <rect class="st" x="244" y="180" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="275" y="196">France?</text>
+      <text class="mid mo" x="197" y="196">⋯</text>
+      <path class="ln" d="M41 178 V158" marker-end="url(#pd1)"/>
+      <path class="ln" d="M41 110 V86" marker-end="url(#pd1)"/>
+      <path class="ln" d="M119 178 V158" marker-end="url(#pd1)"/>
+      <path class="ln" d="M119 110 V86" marker-end="url(#pd1)"/>
+      <path class="ln" d="M275 178 V158" marker-end="url(#pd1)"/>
+      <path class="ln" d="M275 110 V86" marker-end="url(#pd1)"/>
+      <text class="mid xs" x="158" y="230">whole prompt in <tspan class="kt it">parallel</tspan> — <tspan class="kt">1</tspan> forward pass</text>
+
+      <text class="mid fnt" x="340" y="142" font-size="19">⇒</text>
+      <text class="mid xs" x="340" y="68">The starts</text>
+      <text class="mid xs" x="340" y="80">the answer</text>
+
+      <text class="mid bd" x="520" y="22" font-size="12">Decode phase</text>
+      <rect class="st" x="369" y="58" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="400" y="74">capital</text>
+      <rect class="sb" x="365" y="112" width="70" height="42" rx="3"/>
+      <text class="mid" x="400" y="129">Model</text>
+      <text class="mid xs it" x="400" y="144">step 2</text>
+      <rect class="st" x="369" y="180" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="400" y="196">The</text>
+      <path class="ln" d="M400 178 V158" marker-end="url(#pd1)"/>
+      <path class="ln" d="M400 110 V86" marker-end="url(#pd1)"/>
+      <rect class="st" x="489" y="58" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="520" y="74">of</text>
+      <rect class="sb" x="485" y="112" width="70" height="42" rx="3"/>
+      <text class="mid" x="520" y="129">Model</text>
+      <text class="mid xs it" x="520" y="144">step 3</text>
+      <rect class="st" x="489" y="180" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="520" y="196">capital</text>
+      <path class="ln" d="M520 178 V158" marker-end="url(#pd1)"/>
+      <path class="ln" d="M520 110 V86" marker-end="url(#pd1)"/>
+      <rect class="st" x="609" y="58" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="640" y="74">France</text>
+      <rect class="sb" x="605" y="112" width="70" height="42" rx="3"/>
+      <text class="mid" x="640" y="129">Model</text>
+      <text class="mid xs it" x="640" y="144">step 4</text>
+      <rect class="st" x="609" y="180" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="640" y="196">of</text>
+      <path class="ln" d="M640 178 V158" marker-end="url(#pd1)"/>
+      <path class="ln" d="M640 110 V86" marker-end="url(#pd1)"/>
+      <path class="ln" style="stroke-dasharray:4 3" d="M431 70 H449 V192 H487" marker-end="url(#pd2)"/>
+      <path class="ln" style="stroke-dasharray:4 3" d="M551 70 H569 V192 H607" marker-end="url(#pd2)"/>
+      <text class="mid" x="694" y="138">⋯</text>
+      <text class="mid xs" x="520" y="230"><tspan class="vt it">sequential</tspan> — 1 forward pass <tspan class="vt it">per token</tspan></text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 1.</b> Prefill and decode.</figcaption>
+  </figure>
+
   <p>Inference runs in two phases. A question comes in, and processing it is
     <strong>prefill</strong>. Generating the answer’s tokens, one at a time, is
     <strong>decode</strong>.</p>
-
-  <p class="note">Draft — continues here.</p>
-
-  <figure>
-    <div class="canvas">
-    <svg viewBox="0 0 700 175" width="700" role="img"
-         aria-label="A question enters prefill, which processes the whole prompt in one pass; decode then emits tokens one at a time, looping.">
-      <defs><marker id="ov1" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker>
-      <marker id="ov2" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--accent)"/></marker></defs>
-
-      <rect class="st" x="12" y="77" width="116" height="46" rx="3"/>
-      <text class="mid" x="70" y="96">“What is the</text>
-      <text class="mid" x="70" y="112">capital of France?”</text>
-      <text class="mid xs" x="70" y="138">the question</text>
-      <path class="ln" d="M128 100 H164" marker-end="url(#ov1)"/>
-
-      <rect class="st" x="170" y="44" width="200" height="112" rx="5"/>
-      <text class="mid ac bd" x="270" y="36">PREFILL</text>
-      <rect x="193" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="213" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="233" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="253" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="273" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="293" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="313" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="333" y="70" width="14" height="14" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <path class="lnf" d="M193 96 V91 M193 96 H347 M347 96 V91"/>
-      <text class="mid sm" x="270" y="116">the whole prompt at once</text>
-      <text class="mid xs" x="270" y="132">one forward pass</text>
-      <path class="ln" d="M370 100 H406" marker-end="url(#ov1)"/>
-
-      <rect class="st" x="412" y="44" width="276" height="112" rx="5"/>
-      <text class="mid ac bd" x="550" y="36">DECODE</text>
-      <rect x="444" y="70" width="14" height="14" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
-      <text class="mid xs" x="451" y="65">1</text>
-      <path class="ln" d="M460 77 H498" marker-end="url(#ov1)"/>
-      <rect x="500" y="70" width="14" height="14" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
-      <text class="mid xs" x="507" y="65">2</text>
-      <path class="ln" d="M516 77 H554" marker-end="url(#ov1)"/>
-      <rect x="556" y="70" width="14" height="14" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
-      <text class="mid xs" x="563" y="65">3</text>
-      <path class="ln" d="M572 77 H610" marker-end="url(#ov1)"/>
-      <rect x="612" y="70" width="14" height="14" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
-      <text class="mid xs" x="619" y="65">4</text>
-      <path class="lna" d="M619 88 V106 H451 V90" marker-end="url(#ov2)"/>
-      <text class="mid xs ac" x="535" y="120">append the new token and run again</text>
-      <text class="mid sm" x="550" y="140">one token at a time</text>
-    </svg>
-    </div>
-    <figcaption><b>Figure 1.</b> The two phases. <strong>Prefill</strong> takes the
-      question and processes the whole prompt in a single pass. <strong>Decode</strong>
-      then produces the answer one token at a time, appending each new token to the input
-      and running again.</figcaption>
-  </figure>
 
   <h2 id="stack"><span class="num">2</span>Inside the stack: one decoder block</h2>
 
@@ -184,9 +201,7 @@
       <text class="sm mid ac" x="374" y="20">append the new token and run again</text>
     </svg>
     </div>
-    <figcaption><b>Figure 2.</b> One pass of a decoder-only LLM, and the loop it sits in. The
-      residual stream keeps the same shape through all 36 blocks; only the width of the vocabulary
-      axis at the end is different.</figcaption>
+    <figcaption><b>Figure 2.</b> One pass of a decoder-only LLM, and the loop it sits in.</figcaption>
   </figure>
 
   <h3>One pass, with shapes</h3>
@@ -262,9 +277,8 @@
       <text x="407" y="178" class="ac">× L = 36</text>
     </svg>
     </div>
-    <figcaption><b>Figure 3.</b> One decoder block, stacked 36 times. Attention is the <em>only</em> place where information moves between token positions; everything else acts row by row.</figcaption>
+    <figcaption><b>Figure 3.</b> One decoder block, stacked 36 times.</figcaption>
   </figure>
-  <p class="note">Draft — figure is in place; prose to come.</p>
 
   <h2 id="attention"><span class="num">3</span>Attention, one head at a time</h2>
   <figure>
@@ -399,9 +413,8 @@
       <text class="xs" x="250" y="72">(the future)</text>
     </svg>
     </div>
-    <figcaption><b>Figure 4.</b> The causal attention matrix. Because the upper triangle is masked, token j’s k and v are <em>never</em> affected by anything that comes after it — so once computed they are valid forever. That is the licence to cache them.</figcaption>
+    <figcaption><b>Figure 4.</b> The causal attention matrix.</figcaption>
   </figure>
-  <p class="note">Draft — figure is in place; prose to come.</p>
 
   <h2 id="mha"><span class="num">4</span>Multi-head attention</h2>
   <figure>
@@ -447,9 +460,8 @@
       <text class="mid sm" x="320" y="288">MHA(X) ∈ ℝ<tspan dy="-4" font-size="8">T × 4096</tspan></text>
     </svg>
     </div>
-    <figcaption><b>Figure 5.</b> Multi-head attention in Qwen3-8B: 32 heads, each attending on a 128-dimensional slice, concatenated back to 4096 and mixed by W<sub>O</sub>. For clarity this draws full MHA; §5 shows how K and V are actually shared across heads.</figcaption>
+    <figcaption><b>Figure 5.</b> Multi-head attention in Qwen3-8B.</figcaption>
   </figure>
-  <p class="note">Draft — figure is in place; prose to come.</p>
 
   <h2 id="gqa"><span class="num">5</span>MHA → MQA → GQA</h2>
   <figure>
@@ -528,12 +540,10 @@
       <text class="mid xs ac" x="537" y="156">KV cache: 18 KB/token</text>
     </svg>
     </div>
-    <figcaption><b>Figure 6.</b> Sharing keys and values across query heads. Query heads (blue) stay at 32 in Qwen3-8B — drawn as 8 here for space — while the number of K/V heads (green) shrinks. Cache figures are the real Qwen3-8B numbers at BF16.</figcaption>
+    <figcaption><b>Figure 6.</b> MHA, GQA and MQA: sharing keys and values across query heads.</figcaption>
   </figure>
-  <p class="note">Draft — figure is in place; prose to come.</p>
 
   <h2 id="kv"><span class="num">6</span>The KV cache</h2>
-  <p class="note">Draft — prose to come.</p>
 
   <h2 id="intensity"><span class="num">7</span>Arithmetic intensity and the roofline</h2>
   <figure>
@@ -577,7 +587,7 @@
       <text class="ac" x="20" y="220">matrix × vector (GEMV)  ⇒  memory-bound</text>
     </svg>
     </div>
-    <figcaption><b>Figure 7.</b> Same model, two shapes. Prefill hands the hardware a wide block of work per byte of weight; decode hands it one row.</figcaption>
+    <figcaption><b>Figure 7.</b> Prefill and decode as matrix–matrix versus matrix–vector work.</figcaption>
   </figure>
 
   <figure>
@@ -625,12 +635,10 @@
       <text class="sm" x="18" y="170" transform="rotate(-90 18 170)" text-anchor="middle">attainable TFLOP/s</text>
     </svg>
     </div>
-    <figcaption><b>Figure 8.</b> The roofline. Sloped section = bandwidth wall, flat section = compute ceiling. Batch-1 decode runs at well under 1% of the H100’s peak FLOP/s; prefill sits on the ceiling. Batching walks decode up the slope — until the KV cache stops fitting.</figcaption>
+    <figcaption><b>Figure 8.</b> The roofline for an H100 and an RTX 5090, with decode and prefill operating points.</figcaption>
   </figure>
-  <p class="note">Draft — figure is in place; prose to come.</p>
 
   <h2 id="cheat"><span class="num">A</span>Cheat sheet</h2>
-  <p class="note">Draft — prose to come.</p>
 
   <footer>
     © 2026 Hyeondo Jang · Last updated 2026.08
