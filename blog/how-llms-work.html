@@ -46,17 +46,21 @@
 
   <figure>
     <div class="canvas">
-    <svg viewBox="0 0 730 246" width="730" role="img"
-         aria-label="Prefill runs one forward pass over the whole prompt; decode runs one forward pass per generated token.">
+    <svg viewBox="0 0 730 260" width="730" role="img"
+         aria-label="Prefill runs one forward pass over the whole prompt; decode runs one forward pass per generated token, starting from prefill’s last prediction.">
       <defs><marker id="pd1" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker>
       <marker id="pd2" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
 
       <text class="mid bd" x="158" y="22" font-size="12">Prefill phase</text>
       <text class="mid xs" x="158" y="44">a next token at every position — only the last one is used</text>
-      <rect class="stf" x="10" y="58" width="62" height="24" rx="2"/>
-      <text class="mid mo fnt" x="41" y="74">is</text>
-      <rect class="stf" x="88" y="58" width="62" height="24" rx="2"/>
-      <text class="mid mo fnt" x="119" y="74">the</text>
+      <g opacity=".42">
+      <rect class="st" x="10" y="58" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="41" y="74">is</text>
+      </g>
+      <g opacity=".42">
+      <rect class="st" x="88" y="58" width="62" height="24" rx="2"/>
+      <text class="mid mo" x="119" y="74">the</text>
+      </g>
       <text class="mid mo fnt" x="197" y="74">⋯</text>
       <rect class="ab" x="244" y="58" width="62" height="24" rx="2"/>
       <text class="mid mo" x="275" y="74">The</text>
@@ -79,8 +83,6 @@
       <text class="mid xs" x="158" y="230">whole prompt in <tspan class="kt it">parallel</tspan> — <tspan class="kt">1</tspan> forward pass</text>
 
       <text class="mid fnt" x="340" y="142" font-size="19">⇒</text>
-      <text class="mid xs" x="340" y="68">The starts</text>
-      <text class="mid xs" x="340" y="80">the answer</text>
 
       <text class="mid bd" x="520" y="22" font-size="12">Decode phase</text>
       <rect class="st" x="369" y="58" width="62" height="24" rx="2"/>
@@ -114,6 +116,7 @@
       <path class="ln" style="stroke-dasharray:4 3" d="M551 70 H569 V192 H607" marker-end="url(#pd2)"/>
       <text class="mid" x="694" y="138">⋯</text>
       <text class="mid xs" x="520" y="230"><tspan class="vt it">sequential</tspan> — 1 forward pass <tspan class="vt it">per token</tspan></text>
+      <text class="mid xs fnt" x="520" y="246">begins from the next token prefill predicted at the last prompt position</text>
     </svg>
     </div>
     <figcaption><b>Figure 1.</b> Prefill and decode.</figcaption>
