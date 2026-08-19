@@ -282,7 +282,7 @@
   <h2 id="attention"><span class="num">3</span>Attention, one head at a time</h2>
   <figure>
     <div class="canvas">
-    <svg viewBox="0 0 470 220" width="470" role="img" aria-label="A 7 by 7 causal attention matrix: the lower triangle is filled, the upper triangle masked out.">
+    <svg viewBox="26 0 338 220" width="338" role="img" aria-label="A 7 by 7 causal attention matrix: the lower triangle is filled, the upper triangle masked out.">
       <rect x="56" y="24" width="26" height="26" fill="var(--fig-q)" fill-opacity="0.60"/>
       <rect x="56" y="24" width="26" height="26" fill="none" stroke="var(--fig-face)" stroke-width="1.5"/>
       <rect x="82" y="24" width="26" height="26" fill="var(--fig-soft)"/>
@@ -547,7 +547,7 @@
   <h2 id="intensity"><span class="num">7</span>Arithmetic intensity and the roofline</h2>
   <figure>
     <div class="canvas">
-    <svg viewBox="0 0 660 238" width="660" role="img" aria-label="Prefill processes many tokens per weight load; decode processes one token and re-streams all weights.">
+    <svg viewBox="0 0 554 238" width="554" role="img" aria-label="Prefill processes many tokens per weight load; decode processes one token and re-streams all weights.">
       <text class="ac bd" x="20" y="18">Prefill</text>
       <rect x="20" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
       <rect x="36" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
@@ -565,7 +565,7 @@
       <text class="sm" x="196" y="63">each weight is loaded once and</text>
       <text class="sm" x="196" y="75">reused by all T tokens</text>
       <text class="ac" x="20" y="98">matrix × matrix (GEMM)  ⇒  compute-bound</text>
-      <path class="dsh" d="M14 116 H640"/>
+      <path class="dsh" d="M14 116 H540"/>
       <text class="ac bd" x="20" y="140">Decode (step n)</text>
       <rect x="20" y="152" width="13" height="13" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
       <text class="sm" x="42" y="163">1 new token</text>

@@ -63,7 +63,7 @@
   <figure>
     <div class="canvas">
     <svg viewBox="0 0 700 410" width="700" role="img"
-         aria-label="The B200 memory hierarchy. One SM, replicated 160 times, holds four subpartitions each with a warp scheduler, 32 FP32 cores, one tensor core and a 64 KB register file; the four share one 256 KB block of L1 and shared memory at over 100 TB per second. Below the SM sits 126 MB of L2 on the compute die, reached at roughly 12 TB per second, and below that 192 GB of HBM3E reached at 8 TB per second through the HBM controllers. On-chip SRAM totals about 208 MB, so an 8.2 GB model only fits in the bottom row.">
+         aria-label="The B200 memory hierarchy. One SM, replicated 160 times, holds four subpartitions each with a warp scheduler, 32 FP32 cores, one tensor core and a 64 KB register file reachable at over 100 TB per second; the four share one 256 KB block of L1 and shared memory at tens of TB per second. Below the SM sits 126 MB of L2 on the compute die, reached at roughly 12 TB per second, and below that 192 GB of HBM3E reached at 8 TB per second through the HBM controllers. On-chip SRAM totals about 208 MB, so an 8.2 GB model only fits in the bottom row.">
       <defs>
         <marker id="gh" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="7" markerHeight="7"
                 orient="auto-start-reverse">
@@ -82,35 +82,35 @@
       <text class="mid xs" x="106" y="86">warp scheduler</text>
       <text class="mid xs" x="106" y="102">32 FP32 cores</text>
       <text class="mid xs" x="106" y="118">1 tensor core</text>
-      <text class="mid xs" x="106" y="134">64 KB registers</text>
+      <text class="mid xs" x="106" y="134">64 KB reg — 100+ TB/s</text>
 
       <rect class="qb" x="194" y="48" width="148" height="98" rx="4"/>
       <text class="mid bd qt" x="268" y="66">subpartition 1</text>
       <text class="mid xs" x="268" y="86">warp scheduler</text>
       <text class="mid xs" x="268" y="102">32 FP32 cores</text>
       <text class="mid xs" x="268" y="118">1 tensor core</text>
-      <text class="mid xs" x="268" y="134">64 KB registers</text>
+      <text class="mid xs" x="268" y="134">64 KB reg — 100+ TB/s</text>
 
       <rect class="qb" x="356" y="48" width="148" height="98" rx="4"/>
       <text class="mid bd qt" x="430" y="66">subpartition 2</text>
       <text class="mid xs" x="430" y="86">warp scheduler</text>
       <text class="mid xs" x="430" y="102">32 FP32 cores</text>
       <text class="mid xs" x="430" y="118">1 tensor core</text>
-      <text class="mid xs" x="430" y="134">64 KB registers</text>
+      <text class="mid xs" x="430" y="134">64 KB reg — 100+ TB/s</text>
 
       <rect class="qb" x="518" y="48" width="148" height="98" rx="4"/>
       <text class="mid bd qt" x="592" y="66">subpartition 3</text>
       <text class="mid xs" x="592" y="86">warp scheduler</text>
       <text class="mid xs" x="592" y="102">32 FP32 cores</text>
       <text class="mid xs" x="592" y="118">1 tensor core</text>
-      <text class="mid xs" x="592" y="134">64 KB registers</text>
+      <text class="mid xs" x="592" y="134">64 KB reg — 100+ TB/s</text>
 
       <!-- subpartition to L1 -->
       <path class="ln" d="M106 150 V174" marker-start="url(#gh)" marker-end="url(#gh)"/>
       <path class="ln" d="M268 150 V174" marker-start="url(#gh)" marker-end="url(#gh)"/>
       <path class="ln" d="M430 150 V174" marker-start="url(#gh)" marker-end="url(#gh)"/>
       <path class="ln" d="M592 150 V174" marker-start="url(#gh)" marker-end="url(#gh)"/>
-      <text class="bd" x="118" y="166">100+ TB/s</text>
+      <text class="bd" x="118" y="166">tens of TB/s</text>
 
       <!-- L1 / shared memory -->
       <rect class="ab" x="32" y="176" width="634" height="40" rx="4"/>
@@ -297,6 +297,8 @@
     <div class="canvas">
     <svg viewBox="0 0 700 366" width="700" role="img"
          aria-label="Log-log roofline for a B200 in FP8. The sloped bandwidth wall rises at 8 TFLOP/s per FLOP-per-byte and meets the 4500 TFLOP/s compute ceiling at the ridge point of 562 FLOP per byte. Batch-1 decode sits at intensity 2, more than 280 times to the left of the ridge, attaining 16 TFLOP/s. Prefill sits far to the right, on the ceiling.">
+      <defs><marker id="rp" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="6" markerHeight="6"
+             orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/></marker></defs>
       <path class="lnf" style="opacity:.28" d="M102.8 20 V320"/>
       <path class="lnf" style="opacity:.28" d="M211.7 20 V320"/>
       <path class="lnf" style="opacity:.28" d="M320.6 20 V320"/>
@@ -333,9 +335,6 @@
 
       <path class="ln" style="stroke-dasharray:4 3" d="M135.5 300 H402.2"
             marker-start="url(#rp)" marker-end="url(#rp)"/>
-      <defs><marker id="rp" viewBox="0 0 9 9" refX="7.5" refY="4" markerWidth="6" markerHeight="6"
-             orient="auto-start-reverse"><path d="M0 .8 L7.6 4 L0 7.2 z" fill="var(--fig-line)"/>
-             </marker></defs>
       <text class="mid xs" x="269" y="294">280× short</text>
 
       <text class="mid sm" x="375" y="352">arithmetic intensity I  (FLOP/byte)</text>

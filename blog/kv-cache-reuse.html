@@ -211,8 +211,8 @@
     \qquad \ell = 0,1,\dots,\nlayer
   \end{equation}
 
-  <p>The keys and values are row-wise linear maps of that row, followed by a rotation $\Rope_i$
-    that depends only on the position index:</p>
+  <p>The keys and values at block $\ell$ are row-wise linear maps of that row — RMSNorm first,
+    which is row-wise too — followed by a rotation $\Rope_i$ fixed by the position index alone:</p>
 
   \begin{equation}
     \vect{k}^{(\ell)}_i = \Rope_i\!\big(\vect{x}^{(\ell-1)}_i \mat{W}^{(\ell)}_K\big),
@@ -250,12 +250,12 @@
 
   <p>One more caveat, which is about arithmetic rather than mathematics. Equality here holds
     exactly in $\R$, and only approximately in floating point: prefilling $T$ tokens and prefilling
-    $S < T$ tokens can choose different kernel tilings and reduction orders, so a reused entry may
+    $S &lt; T$ tokens can choose different kernel tilings and reduction orders, so a reused entry may
     differ from a recomputed one in the last few bits. Serving stacks accept this. It is the same
     class of nondeterminism you already get from changing the batch size.</p>
 
   <h2 id="worth"><span class="num">2</span>What a hit is worth</h2>
-  <!-- PLAN: quantify the win. Prefill FLOPs and TTFT as a function of the hit fraction; why the
+  <!-- TODO(with author): quantify the win. Prefill FLOPs and TTFT as a function of the hit fraction; why the
        saving lands almost entirely on TTFT and not on inter-token latency; the quadratic attention
        term vs. the linear projection term; batch-level effect (freed prefill capacity raises
        throughput, not just latency); where reuse buys nothing (short prompts, unique prompts).
@@ -286,21 +286,18 @@
       <rect class="st" x="236" y="34" width="22" height="20" rx="1.5"/>
       <rect class="st" x="260" y="34" width="22" height="20" rx="1.5"/>
       <rect class="st" x="284" y="34" width="22" height="20" rx="1.5"/>
-      <text class="end xs" x="16" y="48">tokens</text>
+      <text class="xs" x="20" y="28">prompt tokens</text>
 
       <path class="ln" d="M67 58  V72" marker-end="url(#kv2)"/>
       <path class="ln" d="M163 58 V72" marker-end="url(#kv2)"/>
       <path class="ln" d="M259 58 V72" marker-end="url(#kv2)"/>
 
-      <rect class="ab" x="18"  y="74" width="98" height="22" rx="2"/>
-      <text class="mid mo" x="67"  y="89" font-size="8.5">h₁ = H(⊥, blk₁)</text>
-      <rect class="ab" x="114" y="74" width="98" height="22" rx="2"/>
-      <text class="mid mo" x="163" y="89" font-size="8.5">h₂ = H(h₁, blk₂)</text>
-      <rect class="ab" x="210" y="74" width="98" height="22" rx="2"/>
-      <text class="mid mo" x="259" y="89" font-size="8.5">h₃ = H(h₂, blk₃)</text>
-
-      <path class="ln" style="stroke-dasharray:3 2" d="M116 85 H112" marker-end="url(#kv2)"/>
-      <path class="ln" style="stroke-dasharray:3 2" d="M212 85 H208" marker-end="url(#kv2)"/>
+      <rect class="ab" x="21"  y="74" width="92" height="22" rx="2"/>
+      <text class="mid mo" x="67"  y="89" font-size="8">h₁ = H(⊥, blk₁)</text>
+      <rect class="ab" x="117" y="74" width="92" height="22" rx="2"/>
+      <text class="mid mo" x="163" y="89" font-size="8">h₂ = H(h₁, blk₂)</text>
+      <rect class="ab" x="213" y="74" width="92" height="22" rx="2"/>
+      <text class="mid mo" x="259" y="89" font-size="8">h₃ = H(h₂, blk₃)</text>
 
       <path class="ln" d="M67 98  V126" marker-end="url(#kv2)"/>
       <path class="ln" d="M163 98 V126" marker-end="url(#kv2)"/>
@@ -319,7 +316,7 @@
       <text class="mid fnt" x="140" y="204" font-size="9">↦</text>
       <text class="mo" x="176" y="204" font-size="9">page 9</text>
 
-      <text class="mid xs" x="163" y="238">a block’s key is its content <tspan class="it">and</tspan> its history —</text>
+      <text class="mid xs" x="163" y="238">a block’s key is its content plus its history —</text>
       <text class="mid xs" x="163" y="250">same tokens, different prefix, different key</text>
 
       <path class="dsh" d="M340 10 V262"/>
@@ -336,19 +333,19 @@
       <text class="mid" x="546" y="86" font-size="10">system prompt · 3 blocks</text>
       <text class="xs ac" x="650" y="86">ref 2</text>
 
-      <path class="ln" style="stroke:var(--accent);stroke-width:1.4" d="M500 94 V104 H430 V120" marker-end="url(#kv2a)"/>
-      <path class="ln" d="M592 94 V104 H638 V120" marker-end="url(#kv2)"/>
+      <path class="ln" style="stroke:var(--accent);stroke-width:1.4" d="M500 94 V104 H426 V120" marker-end="url(#kv2a)"/>
+      <path class="ln" d="M592 94 V104 H618 V120" marker-end="url(#kv2)"/>
 
-      <rect class="st" x="360" y="122" width="140" height="24" rx="2"/>
-      <text class="mid" x="430" y="138" font-size="10">chat A · 4 blocks</text>
-      <text class="xs" x="506" y="138">ref 1</text>
-      <rect class="st" x="568" y="122" width="140" height="24" rx="2"/>
-      <text class="mid" x="638" y="138" font-size="10">chat B · 2 blocks</text>
-      <text class="xs" x="714" y="138">ref 1</text>
+      <rect class="st" x="356" y="122" width="140" height="24" rx="2"/>
+      <text class="mid" x="426" y="138" font-size="10">chat A · 4 blocks</text>
+      <text class="xs" x="502" y="138">ref 1</text>
+      <rect class="st" x="548" y="122" width="140" height="24" rx="2"/>
+      <text class="mid" x="618" y="138" font-size="10">chat B · 2 blocks</text>
+      <text class="xs" x="694" y="138">ref 1</text>
 
-      <path class="ln" style="stroke:var(--accent);stroke-width:1.4" d="M430 146 V170" marker-end="url(#kv2a)"/>
-      <rect class="qb" x="360" y="172" width="140" height="24" rx="2"/>
-      <text class="mid" x="430" y="188" font-size="10">new turn · miss</text>
+      <path class="ln" style="stroke:var(--accent);stroke-width:1.4" d="M426 146 V170" marker-end="url(#kv2a)"/>
+      <rect class="qb" x="356" y="172" width="140" height="24" rx="2"/>
+      <text class="mid" x="426" y="188" font-size="10">new turn · miss</text>
 
       <text class="mid ac xs" x="546" y="216">a request walks down while block hashes match;</text>
       <text class="mid ac xs" x="546" y="228">prefill resumes at the first mismatch</text>
@@ -361,7 +358,7 @@
       shared trunk is physically shared.</figcaption>
   </figure>
 
-  <!-- PLAN: how the invariant is cashed in. Paged KV (fixed-size blocks) as the unit of sharing;
+  <!-- TODO(with author): how the invariant is cashed in. Paged KV (fixed-size blocks) as the unit of sharing;
        prefix hash chaining and why the parent hash must be in the key; radix-tree matching
        (SGLang RadixAttention) vs. flat hash table (vLLM APC); reference counting, copy-on-write
        for forks (parallel sampling, beam search, tree search); LRU eviction on the tree; the
@@ -369,7 +366,7 @@
        document Q&A) and why multi-turn is the big one. -->
 
   <h2 id="limits"><span class="num">4</span>Where exactness stops</h2>
-  <!-- PLAN: the two hard walls. (i) Position: RoPE folds absolute index into k, so the same text
+  <!-- TODO(with author): the two hard walls. (i) Position: RoPE folds absolute index into k, so the same text
        at a different offset has different keys — reuse must be prefix-aligned, and a shifted chunk
        needs re-encoding. (ii) Cross-attention: a chunk's entries encode attention to its actual
        left context, so independently-prefilled chunks cannot simply be concatenated. Also: block
@@ -379,7 +376,7 @@
        (b) 2x2 block attention matrix with the lower-left block missing. -->
 
   <h2 id="beyond"><span class="num">5</span>Reuse past the prefix</h2>
-  <!-- PLAN: trading exactness for hit rate. PromptCache-style modular position slots; CacheBlend's
+  <!-- TODO(with author): trading exactness for hit rate. PromptCache-style modular position slots; CacheBlend's
        selective recompute of the highest-deviation tokens to restore cross-attention at a few
        percent of prefill cost; when the approximation is acceptable (RAG contexts, mostly
        independent documents) and when it is not; how to measure the damage (task metric, not
@@ -387,7 +384,8 @@
        tokens recomputed. -->
 
   <h2 id="hierarchy"><span class="num">6</span>Where the cache lives</h2>
-  <!-- PLAN: reuse is only free if the bytes are close. Cache size per token for Qwen3-8B (GQA,
+  <!-- TODO(with author): reuse is only free if the bytes are close. Reuse the tier numbers from
+       how-gpus-work.html#hierarchy rather than restating them. Cache size per token for Qwen3-8B (GQA,
        36 layers, 8 KV heads, 128 head dim, fp16) -> how few sequences fit in HBM; the tiers
        (HBM / host DRAM over PCIe / NVMe / remote store) with bandwidths; the break-even
        inequality (bytes-to-move / transfer bandwidth vs. prefill FLOPs / compute throughput) and
@@ -396,7 +394,7 @@
        bandwidths and the break-even crossover. -->
 
   <h2 id="cheat"><span class="num">A</span>Cheat sheet</h2>
-  <!-- PLAN: one-screen table. Reuse mode | what must match | exact? | typical saving | cost. Plus
+  <!-- TODO(with author): one-screen table. Reuse mode | what must match | exact? | typical saving | cost. Plus
        the practical rules: put the stable text first, keep it byte-identical, align to block
        size, and measure hit rate as a first-class serving metric. -->
 
