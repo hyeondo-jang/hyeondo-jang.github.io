@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How LLMs work, with Qwen3-8B — Hyeondo Jang</title>
-<meta name="description" content="How a decoder-only LLM actually runs, using Qwen3-8B as the running example: the decoder block, attention, MHA and GQA, prefill vs. decode, the KV cache, and arithmetic intensity.">
+<meta name="description" content="How a decoder-only LLM actually runs, using Qwen3-8B as the running example: prefill and decode, the decoder block, attention, MHA and GQA, the KV cache, and arithmetic intensity.">
 <meta name="author" content="Hyeondo Jang">
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjMGU3YTk1Ii8+PHRleHQgeD0iNTAiIHk9IjUwIiBkeT0iLjM0ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJ1aS1tb25vc3BhY2UsU0ZNb25vLVJlZ3VsYXIsTWVubG8sbW9ub3NwYWNlIiBmb250LXNpemU9IjQ0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjZmZmZmZmIj5ISjwvdGV4dD48L3N2Zz4=">
@@ -35,21 +35,23 @@
   <div class="toc-box">
     <p>Contents</p>
     <ol>
-      <li><span class="n">1</span><a href="#overview">Overview: how a prompt becomes text</a></li>
+      <li><span class="n">1</span><a href="#phases">Prefill and decode</a></li>
       <li><span class="n">2</span><a href="#stack">Inside the stack: one decoder block</a></li>
       <li><span class="n">3</span><a href="#attention">Attention, one head at a time</a></li>
       <li><span class="n">4</span><a href="#mha">Multi-head attention</a></li>
       <li><span class="n">5</span><a href="#gqa">MHA → MQA → GQA</a></li>
-      <li><span class="n">6</span><a href="#phases">The two phases: prefill and decode</a></li>
-      <li><span class="n">7</span><a href="#kv">The KV cache</a></li>
-      <li><span class="n">8</span><a href="#intensity">Arithmetic intensity and the roofline</a></li>
+      <li><span class="n">6</span><a href="#kv">The KV cache</a></li>
+      <li><span class="n">7</span><a href="#intensity">Arithmetic intensity and the roofline</a></li>
       <li><span class="n">A</span><a href="#cheat">Cheat sheet</a></li>
     </ol>
   </div>
 
-  <!-- ==================================================================== -->
-  <h2 id="overview"><span class="num">1</span>Overview: how a prompt becomes text</h2>
-  <p class="note">Draft — figure and tables are in place; prose to come.</p>
+  <h2 id="phases"><span class="num">1</span>Prefill and decode: what runs when you send a prompt</h2>
+
+  <p>Inference runs in two phases. <strong>Prefill</strong> is the phase that processes the
+    prompt; <strong>decode</strong> is the phase that generates tokens one at a time.</p>
+
+  <p class="note">Draft — continues here.</p>
 
   <figure>
     <div class="canvas">
@@ -132,7 +134,7 @@
       axis at the end is different.</figcaption>
   </figure>
 
-  <h3>The pipeline, with shapes</h3>
+  <h3>One pass, with shapes</h3>
 
   <div class="tablewrap">
     <table>
@@ -156,6 +158,50 @@
     </table>
   </div>
 
+  <figure>
+    <div class="canvas">
+    <svg viewBox="0 0 660 238" width="660" role="img" aria-label="Prefill processes many tokens per weight load; decode processes one token and re-streams all weights.">
+      <text class="ac bd" x="20" y="18">Prefill</text>
+      <rect x="20" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="36" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="52" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="68" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="84" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="100" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="116" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="132" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="148" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <rect x="164" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
+      <text class="sm" x="196" y="41">T tokens enter together</text>
+      <rect class="vb" x="20" y="58" width="90" height="15" rx="2"/>
+      <text class="mid xs" x="65" y="69">weights</text>
+      <text class="sm" x="196" y="63">each weight is loaded once and</text>
+      <text class="sm" x="196" y="75">reused by all T tokens</text>
+      <text class="ac" x="20" y="98">matrix × matrix (GEMM)  ⇒  compute-bound</text>
+      <path class="dsh" d="M14 116 H640"/>
+      <text class="ac bd" x="20" y="140">Decode (step n)</text>
+      <rect x="20" y="152" width="13" height="13" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
+      <text class="sm" x="42" y="163">1 new token</text>
+      <rect x="150" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="166" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="182" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="198" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="214" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="230" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="246" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="262" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="278" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <rect x="294" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
+      <text class="sm" x="320" y="163">+ n cached K, V rows (read every step)</text>
+      <rect class="vb" x="20" y="182" width="90" height="15" rx="2"/>
+      <text class="mid xs" x="65" y="193">weights</text>
+      <text class="sm" x="196" y="193"><tspan class="bd" fill="currentColor">all 16.4 GB</tspan> streamed again — for one token</text>
+      <text class="ac" x="20" y="220">matrix × vector (GEMV)  ⇒  memory-bound</text>
+    </svg>
+    </div>
+    <figcaption><b>Figure 2.</b> Same model, two shapes. Prefill hands the hardware a wide block of work per byte of weight; decode hands it one row.</figcaption>
+  </figure>
+
   <h3>Where the cost is</h3>
 
   <div class="tablewrap">
@@ -175,15 +221,10 @@
             <td><a href="#stack">§2</a></td></tr>
         <tr><td>the loop itself</td>
             <td class="flow">repeats all of the above, once per token</td>
-            <td><a href="#phases">§6</a>–<a href="#intensity">§8</a></td></tr>
+            <td><a href="#kv">§6</a>–<a href="#intensity">§7</a></td></tr>
       </tbody>
     </table>
   </div>
-  <!-- ==================================================================== -->
-  <!--  SECTIONS 2-8 AND THE APPENDIX GO HERE.                              -->
-  <!--  Reference material for these sections (LaTeX, not prose to paste):   -->
-  <!--  ~/log_teams/reading_group/0819_team_rg/supplementary/sections/       -->
-  <!-- ==================================================================== -->
 
   <h2 id="stack"><span class="num">2</span>Inside the stack: one decoder block</h2>
   <figure>
@@ -235,7 +276,7 @@
       <text x="407" y="178" class="ac">× L = 36</text>
     </svg>
     </div>
-    <figcaption><b>Figure 2.</b> One decoder block, stacked 36 times. Attention is the <em>only</em> place where information moves between token positions; everything else acts row by row.</figcaption>
+    <figcaption><b>Figure 3.</b> One decoder block, stacked 36 times. Attention is the <em>only</em> place where information moves between token positions; everything else acts row by row.</figcaption>
   </figure>
   <p class="note">Draft — figure is in place; prose to come.</p>
 
@@ -372,7 +413,7 @@
       <text class="xs" x="250" y="72">(the future)</text>
     </svg>
     </div>
-    <figcaption><b>Figure 3.</b> The causal attention matrix. Because the upper triangle is masked, token j’s k and v are <em>never</em> affected by anything that comes after it — so once computed they are valid forever. That is the licence to cache them.</figcaption>
+    <figcaption><b>Figure 4.</b> The causal attention matrix. Because the upper triangle is masked, token j’s k and v are <em>never</em> affected by anything that comes after it — so once computed they are valid forever. That is the licence to cache them.</figcaption>
   </figure>
   <p class="note">Draft — figure is in place; prose to come.</p>
 
@@ -420,7 +461,7 @@
       <text class="mid sm" x="320" y="288">MHA(X) ∈ ℝ<tspan dy="-4" font-size="8">T × 4096</tspan></text>
     </svg>
     </div>
-    <figcaption><b>Figure 4.</b> Multi-head attention in Qwen3-8B: 32 heads, each attending on a 128-dimensional slice, concatenated back to 4096 and mixed by W<sub>O</sub>. For clarity this draws full MHA; §5 shows how K and V are actually shared across heads.</figcaption>
+    <figcaption><b>Figure 5.</b> Multi-head attention in Qwen3-8B: 32 heads, each attending on a 128-dimensional slice, concatenated back to 4096 and mixed by W<sub>O</sub>. For clarity this draws full MHA; §5 shows how K and V are actually shared across heads.</figcaption>
   </figure>
   <p class="note">Draft — figure is in place; prose to come.</p>
 
@@ -501,60 +542,14 @@
       <text class="mid xs ac" x="537" y="156">KV cache: 18 KB/token</text>
     </svg>
     </div>
-    <figcaption><b>Figure 5.</b> Sharing keys and values across query heads. Query heads (blue) stay at 32 in Qwen3-8B — drawn as 8 here for space — while the number of K/V heads (green) shrinks. Cache figures are the real Qwen3-8B numbers at BF16.</figcaption>
+    <figcaption><b>Figure 6.</b> Sharing keys and values across query heads. Query heads (blue) stay at 32 in Qwen3-8B — drawn as 8 here for space — while the number of K/V heads (green) shrinks. Cache figures are the real Qwen3-8B numbers at BF16.</figcaption>
   </figure>
   <p class="note">Draft — figure is in place; prose to come.</p>
 
-  <h2 id="phases"><span class="num">6</span>The two phases: prefill and decode</h2>
-  <figure>
-    <div class="canvas">
-    <svg viewBox="0 0 660 238" width="660" role="img" aria-label="Prefill processes many tokens per weight load; decode processes one token and re-streams all weights.">
-      <text class="ac bd" x="20" y="18">Prefill</text>
-      <rect x="20" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="36" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="52" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="68" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="84" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="100" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="116" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="132" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="148" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <rect x="164" y="30" width="13" height="13" rx="2" fill="var(--fig-qt)" stroke="var(--fig-q)"/>
-      <text class="sm" x="196" y="41">T tokens enter together</text>
-      <rect class="vb" x="20" y="58" width="90" height="15" rx="2"/>
-      <text class="mid xs" x="65" y="69">weights</text>
-      <text class="sm" x="196" y="63">each weight is loaded once and</text>
-      <text class="sm" x="196" y="75">reused by all T tokens</text>
-      <text class="ac" x="20" y="98">matrix × matrix (GEMM)  ⇒  compute-bound</text>
-      <path class="dsh" d="M14 116 H640"/>
-      <text class="ac bd" x="20" y="140">Decode (step n)</text>
-      <rect x="20" y="152" width="13" height="13" rx="2" fill="var(--fig-at)" stroke="var(--accent)"/>
-      <text class="sm" x="42" y="163">1 new token</text>
-      <rect x="150" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="166" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="182" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="198" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="214" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="230" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="246" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="262" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="278" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <rect x="294" y="152" width="13" height="13" rx="2" fill="var(--fig-kt)" stroke="var(--fig-k)"/>
-      <text class="sm" x="320" y="163">+ n cached K, V rows (read every step)</text>
-      <rect class="vb" x="20" y="182" width="90" height="15" rx="2"/>
-      <text class="mid xs" x="65" y="193">weights</text>
-      <text class="sm" x="196" y="193"><tspan class="bd" fill="currentColor">all 16.4 GB</tspan> streamed again — for one token</text>
-      <text class="ac" x="20" y="220">matrix × vector (GEMV)  ⇒  memory-bound</text>
-    </svg>
-    </div>
-    <figcaption><b>Figure 6.</b> Same model, two shapes. Prefill hands the hardware a wide block of work per byte of weight; decode hands it one row.</figcaption>
-  </figure>
-  <p class="note">Draft — figure is in place; prose to come.</p>
-
-  <h2 id="kv"><span class="num">7</span>The KV cache</h2>
+  <h2 id="kv"><span class="num">6</span>The KV cache</h2>
   <p class="note">Draft — prose to come.</p>
 
-  <h2 id="intensity"><span class="num">8</span>Arithmetic intensity and the roofline</h2>
+  <h2 id="intensity"><span class="num">7</span>Arithmetic intensity and the roofline</h2>
   <figure>
     <div class="canvas">
     <svg viewBox="0 0 700 366" width="700" role="img" aria-label="Log-log roofline plot for H100 and RTX 5090 with decode and prefill operating points marked.">
