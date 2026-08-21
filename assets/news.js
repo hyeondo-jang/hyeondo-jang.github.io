@@ -10,6 +10,7 @@
   'use strict';
 
   var NEWS = [
+    { date: '2026.08', body: 'Our paper on extreme LLM sparsity has been accepted to EMNLP 2026! 🎉' },
     { date: '2026.08', body: 'Our paper on robust semiconductor anomaly detection with large vision-language models has been accepted to BMVC 2026! 🎉' },
     { date: '2026.07', body: 'Our paper on extreme LLM sparsity received the Best Paper Award at CKAIA 2026! 🏆' },
     { date: '2026.07', body: 'I will be attending ICML 2026 this July.' },
