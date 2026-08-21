@@ -30,30 +30,19 @@
 
   <h2 id="invariant">The invariant that makes reuse legal</h2>
 
-  <p>Decode computes one row. Suppose $t$ tokens have been processed and the model needs the
-    output at position $t+1$. Inside one head of one layer, attention is defined on the whole
-    sequence, but only its last row is ever used:</p>
+  <p>Decode's attention was unfolded in <a href="how-llms-work.html#decode">§4 of the first
+    post</a>: the causal mask kills every column past $n$, the softmax is row-wise, and row $n$ of
+    the output collapses to a matrix–vector product. At step $n$, one head of one layer computes</p>
 
   \begin{equation}
-    \begin{aligned}
-      \vect{o}_{t+1}
-      &= \left[\softmax\!\left(\frac{\mat{Q}\mat{K}\T}{\sqrt{\dhead}} + \mat{M}\right)\mat{V}
-         \right]_{t+1,\,:} \\[3pt]
-      &= \left[\softmax\!\left(\frac{\mat{Q}\mat{K}\T}{\sqrt{\dhead}} + \mat{M}\right)
-         \right]_{t+1,\,:}\mat{V} \\[3pt]
-      &= \softmax\!\left(\frac{\mat{Q}_{t+1,\,:}\,\mat{K}\T}{\sqrt{\dhead}}\right)\mat{V} \\[3pt]
-      &= \softmax\!\left(\frac{\vect{q}\,\mat{K}\T}{\sqrt{\dhead}}\right)\mat{V}
-    \end{aligned}
+    \vect{o} \;=\; \softmax\!\left(\frac{\vect{q}\,\mat{K}_{1:n}\T}{\sqrt{\dhead}}\right)\mat{V}_{1:n},
+    \qquad \vect{q} \defeq \mat{Q}_{n,:} \in \R^{1\times\dhead}
   \end{equation}
 
-  <p>Two facts do the work. Row $t+1$ of a product is row $t+1$ of the left factor times the right
-    factor, and $\softmax$ acts row by row, so the row index passes through both. The causal mask
-    $\mat{M}$ is vacuous on the last row — position $t+1$ may attend to everything before it — so it drops out.
-    What remains is a single query row $\vect{q} = \mat{Q}_{t+1,\,:} \in \R^{1\times\dhead}$ against
-    $\mat{K},\mat{V} \in \R^{(t+1)\times\dhead}$: the full $\mat{Q}$ never has to be formed, but
-    $\mat{K}$ and $\mat{V}$ are needed in full. That is what the cache holds.</p>
+  <p>Only $\vect{q}$ and the new rows $\vect{k}_n$, $\vect{v}_n$ are computed at this step;
+    $\mat{K}_{1:n}$ and $\mat{V}_{1:n}$ are read in full. That is what the cache holds.</p>
 
-  <p>And $\mat{K}$, $\mat{V}$ are only ever appended to. Row $i$ of the layer-$\ell$ cache is</p>
+  <p>And they are only ever appended to. Row $i$ of the layer-$\ell$ cache is</p>
 
   \begin{equation}
     \vect{k}_i = \Rope_i\!\big(\vect{x}^{(\ell-1)}_i\mat{W}_K\big), \qquad
@@ -61,14 +50,14 @@
   \end{equation}
 
   <p>and $\vect{x}^{(\ell-1)}_i$ is a function of $t_1,\dots,t_i$ alone: causal attention lets no
-    later position reach it, and every other stage in the block is row-wise. So the step that
-    produces position $t+1$ writes one new row and leaves the others untouched,</p>
+    later position reach it, and every other stage in the block is row-wise. So step $n$ writes one
+    new row and leaves the others untouched,</p>
 
   \begin{equation}
-    \mat{K}_{1:t+1} =
-    \begin{bmatrix} \mat{K}_{1:t} \\ \vect{k}_{t+1} \end{bmatrix}, \qquad
-    \mat{V}_{1:t+1} =
-    \begin{bmatrix} \mat{V}_{1:t} \\ \vect{v}_{t+1} \end{bmatrix}
+    \mat{K}_{1:n} =
+    \begin{bmatrix} \mat{K}_{1:n-1} \\ \vect{k}_n \end{bmatrix}, \qquad
+    \mat{V}_{1:n} =
+    \begin{bmatrix} \mat{V}_{1:n-1} \\ \vect{v}_n \end{bmatrix}
   \end{equation}
 
   <p>Whether row $i$ was written during prefill or during an earlier decode step, it is the same
