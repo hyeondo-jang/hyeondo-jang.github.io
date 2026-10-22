@@ -2,7 +2,9 @@
  *
  * Add a new item at the TOP of the array — index.html renders only the first
  * few (via data-limit on #newsList) and news.html renders all of them, so this
- * file is the only place news ever needs editing.
+ * file is the only place news ever needs editing — but bump the ?v= on the
+ * news.js <script> tags in index.html and news.html, or browsers keep serving
+ * the cached copy for up to 10 minutes.
  *
  * `body` is inserted as HTML, so inline <a> links are fine.
  */
