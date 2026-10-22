@@ -10,6 +10,7 @@
   'use strict';
 
   var NEWS = [
+    { emoji: '✈️', date: '2026.10', body: 'I will be attending EMNLP 2026. See you in Budapest! 🇭🇺' },
     { emoji: '🏆', date: '2026.08', body: 'I was selected for the NRF Research Grant for Master’s Students.' },
     { emoji: '🎉', date: '2026.08', body: 'Our paper on extreme LLM sparsity has been accepted to EMNLP 2026!' },
     { emoji: '🎉', date: '2026.08', body: 'Our paper on robust semiconductor anomaly detection with large vision-language models has been accepted to BMVC 2026!' },
