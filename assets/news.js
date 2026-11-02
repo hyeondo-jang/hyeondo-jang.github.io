@@ -20,7 +20,7 @@
     { emoji: '🏆', date: '2026.07', body: 'Our paper on extreme LLM sparsity received the Best Paper Award at CKAIA 2026!' },
     { emoji: '✈️', date: '2026.07', body: 'I will be attending ICML 2026 this July.' },
     { emoji: '🎉', date: '2026.01', body: 'Our paper on pushing large language models to extreme sparsity has been accepted to ICLR 2026!' },
-    { emoji: '🏆', date: '2025.11', body: 'Our paper on pushing large language models to extreme sparsity received the Best Paper Award at CKAIA 2025!' },
+    { emoji: '🏆', date: '2025.11', body: 'Our paper on pushing large language models to extreme sparsity received the Best Paper Award at JKAIA 2025!' },
     { emoji: '🎓', date: '2025.04', body: 'I was selected as a <a href="https://www.ikef.or.kr/">Kwanjeong Educational Foundation</a> Scholar.' },
     { emoji: '🏫', date: '2025.03', body: 'I began my M.S. at POSTECH, where I am advised by <a href="https://namhoonlee.github.io">Namhoon Lee</a>.' }
   ];
