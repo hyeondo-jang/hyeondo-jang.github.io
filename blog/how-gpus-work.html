@@ -7,13 +7,16 @@
 <meta name="description" content="What a datacenter GPU is actually made of, using the NVIDIA B200 as the running example: the die, the SM and its subpartitions, the register / L1 / L2 / HBM hierarchy, and why bandwidth — not compute — is what an LLM runs into.">
 <meta name="author" content="Hyeondo Jang">
 <meta name="theme-color" content="#ffffff">
-<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjMGU3YTk1Ii8+PHRleHQgeD0iNTAiIHk9IjUwIiBkeT0iLjM0ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJ1aS1tb25vc3BhY2UsU0ZNb25vLVJlZ3VsYXIsTWVubG8sbW9ub3NwYWNlIiBmb250LXNpemU9IjQ0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjZmZmZmZmIj5ISjwvdGV4dD48L3N2Zz4=">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjYTYxOTNjIi8+PHRleHQgeD0iNTAiIHk9IjUwIiBkeT0iLjM0ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJ1aS1tb25vc3BhY2UsU0ZNb25vLVJlZ3VsYXIsTWVubG8sbW9ub3NwYWNlIiBmb250LXNpemU9IjQ0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjZmZmZmZmIj5ISjwvdGV4dD48L3N2Zz4=">
 <!-- Open Graph -->
 <meta property="og:title" content="How GPUs work, with the B200">
 <meta property="og:description" content="What a datacenter GPU is made of, and why bandwidth is the wall an LLM hits.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://hyeondo-jang.github.io/blog/how-gpus-work.html">
-<link rel="stylesheet" href="../assets/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<link rel="stylesheet" href="../assets/style.css?v=20261102">
 </head>
 <body>
 <main class="subpage post">

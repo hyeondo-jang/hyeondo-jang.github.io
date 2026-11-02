@@ -1,21 +1,23 @@
+/* Theme: POSTECH Crimson. After editing, bump ?v= on the style.css <link> in every page
+   (index, news, blog, blog/*), or browsers keep the cached copy for up to 10 minutes. */
   :root{
-    --bg:#fafbfc; --surface:#ffffff; --text:#191f26; --muted:#59636f;
-    --faint:#8b95a1; --border:#e7ebef; --accent:#0e7a95; --accent-2:#0b6178;
-    --chip-bg:#eef4f6; --sel:#cfe8ef; --award:#c0392b;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-    --mono:"SF Mono","JetBrains Mono","Roboto Mono",ui-monospace,Menlo,Consolas,monospace;
+    --bg:#fbfafa; --surface:#ffffff; --text:#1e1a1c; --muted:#5f5759;
+    --faint:#958b8e; --border:#ece6e7; --accent:#a6193c; --accent-2:#85122f;
+    --chip-bg:#f7e9ec; --sel:#f2cdd6; --award:#a6193c;
+    --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
     --maxw:1040px;
   }
   /* Default is always white/light; dark applies only via the toggle (data-theme="dark"). */
   :root[data-theme="light"]{
-    --bg:#fafbfc; --surface:#ffffff; --text:#191f26; --muted:#59636f;
-    --faint:#8b95a1; --border:#e7ebef; --accent:#0e7a95; --accent-2:#0b6178;
-    --chip-bg:#eef4f6; --sel:#cfe8ef; --award:#c0392b;
+    --bg:#fbfafa; --surface:#ffffff; --text:#1e1a1c; --muted:#5f5759;
+    --faint:#958b8e; --border:#ece6e7; --accent:#a6193c; --accent-2:#85122f;
+    --chip-bg:#f7e9ec; --sel:#f2cdd6; --award:#a6193c;
   }
   :root[data-theme="dark"]{
-    --bg:#0e1114; --surface:#151a1f; --text:#e4e9ee; --muted:#9aa5b1;
-    --faint:#6b7682; --border:#232a31; --accent:#45b6d4; --accent-2:#62c4de;
-    --chip-bg:#17232a; --sel:#123039; --award:#f08a80;
+    --bg:#141012; --surface:#1c1719; --text:#ece6e7; --muted:#ada3a5;
+    --faint:#7a6f72; --border:#2d2528; --accent:#f0748f; --accent-2:#f598ac;
+    --chip-bg:#2a1a1f; --sel:#4a2230; --award:#f0748f;
   }
 
   *{box-sizing:border-box}
@@ -31,7 +33,7 @@
 
   /* ---------- Sidebar ---------- */
   .side{position:sticky;top:0;align-self:start;padding:clamp(36px,6vh,64px) 0 40px;}
-  .avatar{width:118px;height:118px;border-radius:50%;background:
+  .avatar{width:118px;height:118px;border-radius:14px;background:
       radial-gradient(120% 120% at 30% 20%,color-mix(in srgb,var(--accent) 26%,var(--surface)),var(--surface));
       border:1px solid var(--border);display:grid;place-items:center;
       font-family:var(--mono);font-size:2rem;font-weight:600;color:var(--accent);
@@ -91,13 +93,13 @@
   .pub h3{margin:0 0 4px;font-size:.96rem;font-weight:600;line-height:1.35}
   .pub .authors{color:var(--muted);font-size:.86rem;margin:0 0 4px;max-width:none}
   .pub .authors .me{color:var(--text);font-weight:650}
-  .pub .venue{font-family:var(--mono);font-size:.76rem;color:var(--accent);
+  .pub .venue{font-family:var(--mono);font-size:.76rem;color:var(--muted);
               letter-spacing:.02em;margin:0 0 7px}
   .pub .venue .award{color:var(--award);font-weight:600}
   .pub .plinks{display:flex;gap:14px;flex-wrap:wrap}
   .pub .plinks a{font-family:var(--mono);font-size:.72rem;letter-spacing:.03em;
-                 color:var(--muted);border-bottom:none}
-  .pub .plinks a:hover{color:var(--accent)}
+                 color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:1px 9px}
+  .pub .plinks a:hover{color:var(--accent);border-color:var(--accent)}
   /* Sits under the section rule, pulled up against the .eyebrow's 16px gap. */
   .pubnote{text-align:right;color:var(--faint);font-size:.78rem;max-width:none;
            margin:-10px 0 12px}
